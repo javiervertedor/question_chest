@@ -1,2 +1,2 @@
 -- Question Chest Luanti Mod for teachers
--- By Francisco Vertedor.
+-- By Francisco Vertedor
