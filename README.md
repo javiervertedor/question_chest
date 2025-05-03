@@ -60,7 +60,7 @@ An interactive and configurable question chest for Luanti (formerly Minetest) de
 
 1. Clone or download this repository into your `mods/` folder:
     ```bash
-    git clone https://github.com/yourusername/question_chest.git
+    git clone https://github.com/javiervertedor/question_chest.git
     ```
 2. Enable the mod in your world’s `world.mt`:
     ```
@@ -80,7 +80,7 @@ An interactive and configurable question chest for Luanti (formerly Minetest) de
 
 ## 📜 License
 
-MIT License — free for educational and personal use.
+GNU General Public License v3.0.
 
 ---
 
