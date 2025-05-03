@@ -80,7 +80,7 @@ An interactive and configurable question chest for Luanti (formerly Minetest) de
 
 ## 📜 License
 
-MIT License — free for educational and personal use.
+GNU General Public License v3.0.
 
 ---
 
