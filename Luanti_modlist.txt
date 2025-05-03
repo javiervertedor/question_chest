@@ -1,7 +1,7 @@
 areas
 protector
 worldedit
-simple_whitelist
+whitelist
 chat_filter
 mobs_monster
 animalia
