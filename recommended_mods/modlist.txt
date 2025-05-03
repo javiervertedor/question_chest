@@ -21,13 +21,14 @@ x_bows
 rangedweapons
 
 # Biomes & Map Generation
-ethereal
+everness
 underground_challenge
 nether
 nether mobs
 
 # Transport & Automation
-elevator
+realtime elevator
+travelnet
 technic
 mesecons
 digilines
