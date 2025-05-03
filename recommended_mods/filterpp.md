@@ -6,7 +6,7 @@ This document explains how to enable and configure multilingual (English + Chine
 
 ## ✅ What We Did
 
-We created two files:
+These two files contain a list of swear words:
 
 - `swear_words.en.lua`: Contains English swear words and inappropriate terms.
 - `swear_words.cn.lua`: Contains Chinese inappropriate words and phrases, including their pinyin versions.
