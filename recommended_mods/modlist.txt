@@ -1,34 +1,44 @@
+# Moderation & Protection
 areas
 protector
-worldedit
 whitelist
-filter++
+filterpp_lib
+worldedit
+giveall (https://github.com/javiervertedor/giveall)
+
+# Mobs & Animals
 mobs_monster
-animalia
 mobs_animal
-farming
+
+# Farming & Food
+farming_redo
 aqua_farming
 bonemeal
+
+# Combat & Armor
 x_bows
 3d_armor
-rangedweapons*
+rangedweapons
+
+# Biomes & Map Generation
 ethereal
-everness
-valleys_mapgen
 underground_challenge
+mapgen_carpathian
 nether
-advtrains
+
+# Transport & Automation
+basic_trains
 elevator
-techage_modpack
+technic
 mesecons
 digilines
+
+# Education
 vbots
 turtlebots_classroom
+
+# Aesthetic & UI
 xdecor
 travelnet
 soothing_32
-unified_inventory*
-
-My mods:
-giveall
-chest_question
+unified_inventory
