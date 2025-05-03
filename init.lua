@@ -1,1 +1,1 @@
--- Question Chest Luanti Mod for teachers
+-- Question Chest Mod for teachers
