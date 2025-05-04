@@ -102,13 +102,14 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     local correct = {}
     for ans in string.gmatch(fields.correct or "", "([^,]+)") do
         local val = ans:lower():gsub("^%s*(.-)%s*$", "%1")
-        if tonumber(val) then
-            table.insert(correct, tonumber(val))
-        else
+        local num = tonumber(val)
+        if num then
+            table.insert(correct, num)
+        elseif val ~= "" then
             table.insert(correct, val)
         end
     end
-
+    
     local q_type = fields.type == "mcq" and "mcq" or "open"
 
     local store = {
