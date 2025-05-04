@@ -11,13 +11,12 @@
 question_chest = question_chest or {}
 
 local S = minetest.get_translator("question_chest")
+dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
 
 minetest.register_privilege("question_chest_admin", {
     description = "Can configure Question Chests as a teacher",
     give_to_singleplayer = true
 })
-
-dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
 
 minetest.register_node("question_chest:chest", {
     description = S("Question Chest"),
@@ -54,8 +53,7 @@ minetest.register_node("question_chest:chest", {
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
             local fs_name = "question_chest:teacher_config:" .. minetest.pos_to_string(pos)
-            minetest.show_formspec(name, fs_name,
-                question_chest.formspec.teacher_config(pos))
+            minetest.show_formspec(name, fs_name, question_chest.formspec.teacher_config(pos))
         else
             minetest.chat_send_player(name, "This chest will ask you a question before giving rewards.")
         end
@@ -71,19 +69,22 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     local pos = pos_str and minetest.string_to_pos(pos_str)
     if not pos then return end
 
-    if fields.qtype_open then
-        minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, "open"))
-        return
-    elseif fields.qtype_mcq then
-        minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, "mcq"))
+    if fields.quit or not fields.save then
+        -- If dropdown changed, re-render preserving data
+        if fields.qtype then
+            minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, {
+                question = fields.question,
+                qtype = fields.qtype,
+                answers = fields.answers,
+                correct = fields.correct
+            }))
+        end
         return
     end
 
-    if fields.quit or not fields.save then return end
-
+    -- Save button clicked
     local question = (fields.question or ""):gsub("^%s*(.-)%s*$", "%1")
-    local q_type = (fields.hidden_qtype or "open")
-
+    local q_type = (fields.qtype == "mcq") and "mcq" or "open"
     local answers, correct = {}, {}
 
     for a in string.gmatch(fields.answers or "", "([^,]+)") do
@@ -99,8 +100,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         minetest.chat_send_player(name, "Question is required.")
         return
     end
-    if #answers == 0 then
-        minetest.chat_send_player(name, "You must enter at least one answer.")
+    if q_type == "mcq" and #answers == 0 then
+        minetest.chat_send_player(name, "You must enter at least one answer option.")
         return
     end
     if #correct == 0 then
@@ -109,23 +110,24 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     end
 
     local valid = true
-    for _, c in ipairs(correct) do
-        local found = false
-        for _, a in ipairs(answers) do
-            if c == a then
-                found = true
+    if q_type == "mcq" then
+        for _, c in ipairs(correct) do
+            local found = false
+            for _, a in ipairs(answers) do
+                if c == a then
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                valid = false
                 break
             end
         end
-        if not found then
-            valid = false
-            break
+        if not valid then
+            minetest.chat_send_player(name, "One or more correct answers do not match the answer options.")
+            return
         end
-    end
-
-    if not valid then
-        minetest.chat_send_player(name, "One or more correct answers do not match the answer options.")
-        return
     end
 
     local meta = minetest.get_meta(pos)
