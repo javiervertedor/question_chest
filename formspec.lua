@@ -1,41 +1,20 @@
-minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname ~= "question_chest:teacher_config" or not fields.save then return end
+question_chest = question_chest or {}
+question_chest.formspec = {}
 
-    local pos = player:get_pos()
-    -- Use pointed node's position if available
-    local pointed = player:get_pointed_thing()
-    if pointed and pointed.under then
-        pos = pointed.under
-    end
-
+function question_chest.formspec.teacher_config(pos)
     local meta = minetest.get_meta(pos)
+    local stored = minetest.deserialize(meta:get_string("question_data")) or {}
+    local question = stored.question or ""
+    local type_idx = stored.type == "mcq" and 2 or 1
+    local answers = stored.answers and table.concat(stored.answers, ", ") or ""
+    local correct = stored.correct and table.concat(stored.correct, ", ") or ""
 
-    local question = fields.question or ""
-    local answers = {}
-    for answer in string.gmatch(fields.answers or "", "([^,]+)") do
-        table.insert(answers, answer:lower():gsub("^%s*(.-)%s*$", "%1")) -- trim spaces
-    end
-
-    local correct = {}
-    for ans in string.gmatch(fields.correct or "", "([^,]+)") do
-        local val = ans:lower():gsub("^%s*(.-)%s*$", "%1")
-        if tonumber(val) then
-            table.insert(correct, tonumber(val))
-        else
-            table.insert(correct, val)
-        end
-    end
-
-    local q_type = fields.type == "mcq" and "mcq" or "open"
-
-    local store = {
-        question = question,
-        type = q_type,
-        answers = answers,
-        correct = correct
-    }
-
-    meta:set_string("question_data", minetest.serialize(store))
-    meta:set_string("infotext", "Question Chest (configured)")
-    minetest.chat_send_player(player:get_player_name(), "✅ Question saved!")
-end)
+    return "size[8,8]" ..
+        "label[0,0;Configure Question Chest]" ..
+        "textarea[0.3,0.5;7.5,2;question;Question:;" .. minetest.formspec_escape(question) .. "]" ..
+        "dropdown[0.3,2.8;4;type;open-ended,mcq;" .. type_idx .. "]" ..
+        "field[0.3,3.9;7.5,1;answers;Answer options (comma-separated):;" .. minetest.formspec_escape(answers) .. "]" ..
+        "field[0.3,4.9;7.5,1;correct;Correct answer(s): (index or text);" .. minetest.formspec_escape(correct) .. "]" ..
+        "label[0.3,6.1;Place reward items directly into chest inventory]" ..
+        "button_exit[3,7;2,1;save;Save]"
+end

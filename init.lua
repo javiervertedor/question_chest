@@ -9,7 +9,8 @@
 -- You may copy, distribute and modify this code under the terms of the GPLv3.
 -- See https://www.gnu.org/licenses/gpl-3.0.html for full license text.
 
-question_chest = question_chest or {}  -- Ensure global table exists
+question_chest = question_chest or {}  -- defines the global table
+dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
 
 local S = minetest.get_translator("question_chest")
 
