@@ -8,7 +8,6 @@
 -- Licensed under the GNU General Public License v3.0
 -- See https://www.gnu.org/licenses/gpl-3.0.html
 
-
 question_chest = question_chest or {}
 
 local S = minetest.get_translator("question_chest")
@@ -134,4 +133,6 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         answers = answers,
         correct = correct
     }))
-    meta:set_string("infotext", "Question_
+    meta:set_string("infotext", "Question Chest (configured)")
+    minetest.chat_send_player(name, "Question saved successfully.")
+end)
