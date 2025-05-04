@@ -4,8 +4,8 @@
       {
         "match": ".*\\.(lua|png|conf)$",
         "cmd": "robocopy \"${workspaceFolder}\" \"C:\\Users\\Vertedor.Francisco\\Documents\\luanti-5.11.0-win64\\mods\\question_chest\" /MIR /XD .vscode .git recommended_mods /NFL /NDL",
-        "message": "🔄 Copying mod with robocopy...",
-        "messageAfter": "✅ Mod copied successfully."
+        "message": "Copying mod with robocopy...",
+        "messageAfter": "Mod copied successfully."
       }
     ],
     "autoClearConsole": true

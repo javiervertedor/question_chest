@@ -9,6 +9,8 @@
 -- You may copy, distribute and modify this code under the terms of the GPLv3.
 -- See https://www.gnu.org/licenses/gpl-3.0.html for full license text.
 
+question_chest = question_chest or {}  -- Ensure global table exists
+
 local S = minetest.get_translator("question_chest")
 
 -- Register teacher/admin privilege
@@ -115,5 +117,5 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 
     meta:set_string("question_data", minetest.serialize(store))
     meta:set_string("infotext", "Question Chest (configured)")
-    minetest.chat_send_player(name, "✅ Question saved!")
+    minetest.chat_send_player(name, "Question saved!")
 end)
