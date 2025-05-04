@@ -1,5 +1,15 @@
--- Question Chest Luanti Mod for teachers
+-- Question Chest Luanti Mod for Teachers
 -- By Francisco Vertedor
+-- 
+-- This mod adds a protected chest for educational use in Luanti. Teachers can configure
+-- questions (open-ended or multiple choice) and associate rewards. Students must answer
+-- correctly to receive items, promoting learning through gameplay.
+--
+-- Licensed under the GNU General Public License v3.0
+-- You may copy, distribute and modify this code under the terms of the GPLv3.
+-- See https://www.gnu.org/licenses/gpl-3.0.html for full license text.
+
+
 local S = minetest.get_translator("question_chest")
 
 -- Glow level for soft visual effect
