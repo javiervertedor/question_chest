@@ -4,7 +4,7 @@ protector
 whitelist
 filterpp_lib
 worldedit
-xtempban
+extended ban 2
 warn
 giveall (https://github.com/javiervertedor/giveall)
 
