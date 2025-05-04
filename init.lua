@@ -70,7 +70,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     local pos_str = formname:match("^question_chest:teacher_config:(.+)")
     local pos = pos_str and minetest.string_to_pos(pos_str)
     if not pos then
-        minetest.chat_send_player(name, "❌ Invalid chest position.")
+        minetest.chat_send_player(name, "Invalid chest position.")
         return
     end
 
@@ -90,17 +90,17 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     end
 
     if question == "" then
-        minetest.chat_send_player(name, "⚠️ Question is required.")
+        minetest.chat_send_player(name, "Question is required.")
         return
     end
 
     if #answers == 0 then
-        minetest.chat_send_player(name, "⚠️ You must enter at least one answer.")
+        minetest.chat_send_player(name, "You must enter at least one answer.")
         return
     end
 
     if #correct == 0 then
-        minetest.chat_send_player(name, "⚠️ You must specify at least one correct answer.")
+        minetest.chat_send_player(name, "You must specify at least one correct answer.")
         return
     end
 
@@ -120,7 +120,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     end
 
     if not valid then
-        minetest.chat_send_player(name, "⚠️ One or more correct answers do not match the answer options.")
+        minetest.chat_send_player(name, "One or more correct answers do not match the answer options.")
         return
     end
 
@@ -132,5 +132,5 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         correct = correct
     }))
     meta:set_string("infotext", "Question Chest (configured)")
-    minetest.chat_send_player(name, "✅ Question saved successfully.")
+    minetest.chat_send_player(name, "Question saved successfully.")
 end)
