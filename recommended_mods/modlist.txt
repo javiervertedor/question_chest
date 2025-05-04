@@ -4,6 +4,8 @@ protector
 whitelist
 filterpp_lib
 worldedit
+xtempban
+warn
 giveall (https://github.com/javiervertedor/giveall)
 
 # Mobs & Animals
