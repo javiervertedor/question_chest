@@ -10,7 +10,7 @@ minetest.register_node("question_chest:chest", {
     description = S("Question Chest"),
     tiles = {
         "question_chest_top.png",  -- top
-        "default_chest_top.png",  -- bottom
+        "default_chest_bottom.png",  -- bottom
         "default_chest_side.png", -- side1
         "default_chest_side.png", -- side2
         "default_chest_side.png", -- side3
