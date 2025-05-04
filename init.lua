@@ -9,8 +9,7 @@
 -- You may copy, distribute and modify this code under the terms of the GPLv3.
 -- See https://www.gnu.org/licenses/gpl-3.0.html for full license text.
 
-question_chest = question_chest or {}  -- defines the global table
-dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
+question_chest = question_chest or {}
 
 local S = minetest.get_translator("question_chest")
 
@@ -20,8 +19,7 @@ minetest.register_privilege("question_chest_admin", {
     give_to_singleplayer = true
 })
 
-
--- Include formspec functions
+-- Load formspecs
 dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
 
 -- Glow level for soft visual effect
@@ -68,7 +66,8 @@ minetest.register_node("question_chest:chest", {
         end
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
-            minetest.show_formspec(name, "question_chest:teacher_config",
+            local fs_name = "question_chest:teacher_config:" .. minetest.pos_to_string(pos)
+            minetest.show_formspec(name, fs_name,
                 question_chest.formspec.teacher_config(pos))
         else
             minetest.chat_send_player(name, "This chest will ask you a question before giving rewards.")
@@ -80,13 +79,16 @@ minetest.register_node("question_chest:chest", {
 
 -- Handle teacher form submission
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname ~= "question_chest:teacher_config" or not fields.save then return end
+    if not formname:match("^question_chest:teacher_config:") or not fields.save then return end
 
     local name = player:get_player_name()
-    local pos = player:get_pos()
-    local pointed = player:get_pointed_thing()
-    if pointed and pointed.under then
-        pos = pointed.under
+    local pos_str = formname:match("^question_chest:teacher_config:(.+)")
+    if not pos_str then return end
+
+    local pos = minetest.string_to_pos(pos_str)
+    if not pos then
+        minetest.chat_send_player(name, "Could not determine chest position.")
+        return
     end
 
     local meta = minetest.get_meta(pos)
