@@ -11,6 +11,13 @@
 
 local S = minetest.get_translator("question_chest")
 
+-- Register teacher/admin privilege
+minetest.register_privilege("question_chest_admin", {
+    description = "Can configure Question Chests as a teacher",
+    give_to_singleplayer = true
+})
+
+
 -- Include formspec functions
 dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
 
@@ -61,7 +68,7 @@ minetest.register_node("question_chest:chest", {
             minetest.show_formspec(name, "question_chest:teacher_config",
                 question_chest.formspec.teacher_config(pos))
         else
-            minetest.chat_send_player(name, "🧠 This chest will ask you a question before giving rewards.")
+            minetest.chat_send_player(name, "This chest will ask you a question before giving rewards.")
         end
     end,
 
