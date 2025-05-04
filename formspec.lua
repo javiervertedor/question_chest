@@ -29,6 +29,7 @@ function question_chest.formspec.teacher_config(pos, data)
 
     table.insert(fs, "label[0.3,6.1;Place reward items directly into chest inventory below.]")
     table.insert(fs, "button[2.5,6.6;2.5,1;save;Save]")
-    table.insert(fs, "button_exit[5.2,6.6;2.5,1;cancel;Cancel]")
+    table.insert(fs, "button_exit[5.2,6.6;2.5,1;cancel;Close]")
+
     return table.concat(fs, "")
 end

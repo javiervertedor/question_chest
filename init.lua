@@ -8,6 +8,7 @@
 -- Licensed under the GNU General Public License v3.0
 -- See https://www.gnu.org/licenses/gpl-3.0.html
 
+
 question_chest = question_chest or {}
 
 local S = minetest.get_translator("question_chest")
@@ -69,20 +70,21 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     local pos = pos_str and minetest.string_to_pos(pos_str)
     if not pos then return end
 
-    if fields.quit or not fields.save then
-        -- If dropdown changed, re-render preserving data
-        if fields.qtype then
-            minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, {
-                question = fields.question,
-                qtype = fields.qtype,
-                answers = fields.answers,
-                correct = fields.correct
-            }))
-        end
+    -- If form was closed without saving
+    if fields.quit == "true" then return end
+
+    -- If just changing dropdown
+    if fields.qtype and not fields.save then
+        minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, {
+            question = fields.question,
+            qtype = fields.qtype,
+            answers = fields.answers,
+            correct = fields.correct
+        }))
         return
     end
 
-    -- Save button clicked
+    -- Save logic
     local question = (fields.question or ""):gsub("^%s*(.-)%s*$", "%1")
     local q_type = (fields.qtype == "mcq") and "mcq" or "open"
     local answers, correct = {}, {}
@@ -109,7 +111,6 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return
     end
 
-    local valid = true
     if q_type == "mcq" then
         for _, c in ipairs(correct) do
             local found = false
@@ -120,13 +121,9 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                 end
             end
             if not found then
-                valid = false
-                break
+                minetest.chat_send_player(name, "One or more correct answers do not match the answer options.")
+                return
             end
-        end
-        if not valid then
-            minetest.chat_send_player(name, "One or more correct answers do not match the answer options.")
-            return
         end
     end
 
@@ -137,6 +134,4 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         answers = answers,
         correct = correct
     }))
-    meta:set_string("infotext", "Question Chest (configured)")
-    minetest.chat_send_player(name, "Question saved successfully.")
-end)
+    meta:set_string("infotext", "Question_
