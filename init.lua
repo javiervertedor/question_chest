@@ -9,7 +9,7 @@ local glow_level = 4
 minetest.register_node("question_chest:chest", {
     description = S("Question Chest"),
     tiles = {
-        "default_chest_top.png",  -- top
+        "question_chest_top.png",  -- top
         "default_chest_top.png",  -- bottom
         "default_chest_side.png", -- side1
         "default_chest_side.png", -- side2
