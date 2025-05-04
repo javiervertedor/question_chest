@@ -54,9 +54,10 @@ minetest.register_node("question_chest:chest", {
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
             local fs_name = "question_chest:teacher_config:" .. minetest.pos_to_string(pos)
-            minetest.show_formspec(name, fs_name, question_chest.formspec.teacher_config(pos))
+            minetest.show_formspec(name, fs_name,
+                question_chest.formspec.teacher_config(pos))
         else
-            minetest.chat_send_player(name, "🧠 This chest will ask you a question before giving rewards.")
+            minetest.chat_send_player(name, "This chest will ask you a question before giving rewards.")
         end
     end,
 
@@ -64,26 +65,31 @@ minetest.register_node("question_chest:chest", {
 })
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if not formname:match("^question_chest:teacher_config:") or fields.quit then return end
-
+    if not formname:match("^question_chest:teacher_config:") then return end
     local name = player:get_player_name()
     local pos_str = formname:match("^question_chest:teacher_config:(.+)")
     local pos = pos_str and minetest.string_to_pos(pos_str)
-    if not pos then
-        minetest.chat_send_player(name, "Invalid chest position.")
+    if not pos then return end
+
+    if fields.qtype_open then
+        minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, "open"))
+        return
+    elseif fields.qtype_mcq then
+        minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, "mcq"))
         return
     end
 
-    local question = (fields.question or ""):gsub("^%s*(.-)%s*$", "%1")
-    local q_type = fields.qtype_mcq == "true" and "mcq" or "open"
+    if fields.quit or not fields.save then return end
 
-    local answers = {}
+    local question = (fields.question or ""):gsub("^%s*(.-)%s*$", "%1")
+    local q_type = (fields.hidden_qtype or "open")
+
+    local answers, correct = {}, {}
+
     for a in string.gmatch(fields.answers or "", "([^,]+)") do
         local clean = a:lower():gsub("^%s*(.-)%s*$", "%1")
         if clean ~= "" then table.insert(answers, clean) end
     end
-
-    local correct = {}
     for c in string.gmatch(fields.correct or "", "([^,]+)") do
         local clean = c:lower():gsub("^%s*(.-)%s*$", "%1")
         if clean ~= "" then table.insert(correct, clean) end
@@ -93,12 +99,10 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         minetest.chat_send_player(name, "Question is required.")
         return
     end
-
     if #answers == 0 then
         minetest.chat_send_player(name, "You must enter at least one answer.")
         return
     end
-
     if #correct == 0 then
         minetest.chat_send_player(name, "You must specify at least one correct answer.")
         return
