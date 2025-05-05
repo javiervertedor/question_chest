@@ -18,19 +18,6 @@ minetest.register_privilege("question_chest_admin", {
     give_to_singleplayer = true
 })
 
-local function show_reward_chest(pos, player_name)
-    local formspec =
-        "formspec_version[4]" ..
-        "size[10,9]" ..
-        "label[0.3,0.3;Question Chest - Rewards]" ..
-        "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;0.3,0.8;8,1;]" ..
-        "list[current_player;main;0.3,2.5;8,4;]" ..
-        "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
-        "listring[current_player;main]"
-
-    minetest.show_formspec(player_name, "question_chest:rewards:" .. minetest.pos_to_string(pos), formspec)
-end
-
 minetest.register_node("question_chest:chest", {
     description = S("Question Chest"),
     tiles = {
@@ -61,18 +48,39 @@ minetest.register_node("question_chest:chest", {
             and not minetest.is_protected(pos, player:get_player_name())
     end,
 
+    allow_metadata_inventory_take = function(pos, listname, index, stack, player)
+        if minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) then
+            return stack:get_count()
+        end
+        return 0
+    end,
+
+    allow_metadata_inventory_put = function(pos, listname, index, stack, player)
+        if minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) then
+            return stack:get_count()
+        end
+        return 0
+    end,
+
+    allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
+        if minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) then
+            return count
+        end
+        return 0
+    end,
+
     on_rightclick = function(pos, _, clicker)
         local name = clicker:get_player_name()
         if not name or minetest.is_protected(pos, name) then return end
 
         local meta = minetest.get_meta(pos)
-        local answered = minetest.deserialize(meta:get_string("answered_players")) or {}
+        local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
             minetest.show_formspec(name, "question_chest:teacher_config:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.teacher_config(pos))
         elseif answered[name] then
-            show_reward_chest(pos, name)
+            minetest.chat_send_player(name, "You already answered this question.")
         else
             minetest.show_formspec(name, "question_chest:student:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.student_question(pos))
@@ -135,18 +143,28 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         end
 
         local meta = minetest.get_meta(pos)
+        local inv = meta:get_inventory()
+        local rewards = {}
+        for i = 1, inv:get_size("main") do
+            local stack = inv:get_stack("main", i)
+            if not stack:is_empty() then
+                table.insert(rewards, stack:to_table())
+            end
+        end
+
         meta:set_string("question_data", minetest.serialize({
             question = question,
             type = q_type,
             answers = answers,
-            correct = correct
+            correct = correct,
+            rewards = rewards
         }))
         meta:set_string("infotext", "Question Chest (configured)")
-        minetest.chat_send_player(name, "Question saved successfully.")
+        minetest.chat_send_player(name, "Question and reward saved successfully.")
         return
     end
 
-    if formname:match("^question_chest:student:") then
+    if formname:match("^question_chest:student:") and fields.submit_answer then
         local pos_str = formname:match("^question_chest:student:(.+)")
         if not pos_str then return end
         local pos = minetest.string_to_pos(pos_str)
@@ -189,11 +207,20 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         if success then
             answered[name] = true
             meta:set_string("answered_players", minetest.serialize(answered))
-            minetest.chat_send_player(name, "Correct! The chest is now unlocked for you.")
-            show_reward_chest(pos, name)
+
+            -- Give reward to player
+            local rewards = data.rewards or {}
+            local inv = player:get_inventory()
+            for _, itemdef in ipairs(rewards) do
+                if itemdef.name and tonumber(itemdef.count or 0) > 0 then
+                    local stack = ItemStack(itemdef)
+                    inv:add_item("main", stack)
+                end
+            end
+
+            minetest.chat_send_player(name, "Correct! You've received your reward.")
         else
             minetest.chat_send_player(name, "Incorrect answer. Keep trying.")
-            minetest.close_formspec(name, formname)
         end
     end
 end)
