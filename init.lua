@@ -8,280 +8,211 @@
 -- Licensed under the GNU General Public License v3.0
 -- See https://www.gnu.org/licenses/gpl-3.0.html
 
+
 question_chest = question_chest or {}
 
-local S = minetest.get_translator("question_chest")
+-- Load UI form definitions
 dofile(minetest.get_modpath("question_chest") .. "/formspec.lua")
 
+-- Privilege
 minetest.register_privilege("question_chest_admin", {
-    description = "Can configure Question Chests as a teacher",
-    give_to_singleplayer = true
+	description = "Can configure Question Chests as a teacher",
+	give_to_singleplayer = true
 })
 
--- Refills the reward inventory (if needed) per student
-local function refill_rewards(pos, player_name)
-    local meta = minetest.get_meta(pos)
-    local data = minetest.deserialize(meta:get_string("question_data") or "")
-    if not data or not data.rewards then return end
-
-    local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
-    local collected = minetest.deserialize(meta:get_string("reward_collected") or "") or {}
-
-    local inv = meta:get_inventory()
-    inv:set_list("main", {}) -- clear chest
-
-    if answered[player_name] and not collected[player_name] then
-        for _, itemdef in ipairs(data.rewards) do
-            local stack = ItemStack(itemdef)
-            inv:add_item("main", stack)
-        end
-        collected[player_name] = true
-        meta:set_string("reward_collected", minetest.serialize(collected))
-    end
+-- Utilities
+local function parse_csv(str)
+	local t = {}
+	for s in string.gmatch(str or "", "([^,]+)") do
+		local clean = s:lower():gsub("^%s*(.-)%s*$", "%1")
+		if clean ~= "" then table.insert(t, clean) end
+	end
+	return t
 end
 
--- Chest Node
+local function match_answers(a, b)
+	if #a ~= #b then return false end
+	table.sort(a)
+	table.sort(b)
+	for i = 1, #a do
+		if a[i] ~= b[i] then return false end
+	end
+	return true
+end
+
+-- Question Chest Node
 minetest.register_node("question_chest:chest", {
-    description = S("Question Chest"),
-    tiles = {
-        "question_chest_top.png",
-        "default_chest_bottom.png",
-        "default_chest_side.png",
-        "default_chest_side.png",
-        "default_chest_side.png",
-        "default_chest_front.png"
-    },
-    paramtype = "light",
-    light_source = 4,
-    paramtype2 = "facedir",
-    is_ground_content = false,
-    legacy_facedir_simple = true,
-    groups = {dig_immediate = 2, unbreakable = 1},
-    sounds = default.node_sound_wood_defaults(),
+	description = "Question Chest",
+	tiles = {
+		"question_chest_top.png",
+		"default_chest_bottom.png",
+		"default_chest_side.png",
+		"default_chest_side.png",
+		"default_chest_side.png",
+		"default_chest_front.png"
+	},
+	paramtype = "light",
+	light_source = 4,
+	paramtype2 = "facedir",
+	is_ground_content = false,
+	groups = {dig_immediate = 2, unbreakable = 1},
+	sounds = default.node_sound_wood_defaults(),
 
-    on_construct = function(pos)
-        local meta = minetest.get_meta(pos)
-        meta:get_inventory():set_size("main", 8)
-        meta:set_string("infotext", S("Question Chest"))
-        meta:set_string("answered_players", minetest.serialize({}))
-        meta:set_string("reward_collected", minetest.serialize({}))
-    end,
+	on_construct = function(pos)
+		local meta = minetest.get_meta(pos)
+		meta:get_inventory():set_size("main", 8)
+		meta:set_string("infotext", "Question Chest")
+		meta:set_string("answered_players", minetest.serialize({}))
+		meta:set_string("reward_collected", minetest.serialize({}))
+	end,
 
-    can_dig = function(pos, player)
-        local name = player:get_player_name()
-        if not minetest.check_player_privs(name, {question_chest_admin = true}) then
-            return false
-        end
-        return minetest.get_meta(pos):get_inventory():is_empty("main")
-    end,
+	can_dig = function(pos, player)
+		return minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true})
+	end,
 
-    allow_metadata_inventory_take = function(pos, listname, index, stack, player)
-        local name = player:get_player_name()
-        local meta = minetest.get_meta(pos)
+	allow_metadata_inventory_take = function(pos, _, _, stack, player)
+		local name = player:get_player_name()
+		local meta = minetest.get_meta(pos)
+		local answered = minetest.deserialize(meta:get_string("answered_players") or "{}")
+		return answered[name] and stack:get_count() or 0
+	end,
 
-        if minetest.check_player_privs(name, {question_chest_admin = true}) then
-            return stack:get_count()
-        end
+	allow_metadata_inventory_put = function(pos, _, _, stack, player)
+		return minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) and stack:get_count() or 0
+	end,
 
-        local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
-        if answered[name] then
-            return stack:get_count()
-        end
-        return 0
-    end,
+	on_rightclick = function(pos, _, clicker)
+		local name = clicker:get_player_name()
+		local meta = minetest.get_meta(pos)
+		local answered = minetest.deserialize(meta:get_string("answered_players") or "{}")
+		local formname = "question_chest:" .. minetest.pos_to_string(pos)
 
-    allow_metadata_inventory_put = function(pos, listname, index, stack, player)
-        if minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) then
-            return stack:get_count()
-        end
-        return 0
-    end,
+		if minetest.check_player_privs(name, {question_chest_admin = true}) then
+			local data = minetest.deserialize(meta:get_string("question_data") or "") or {}
+			minetest.show_formspec(name, formname .. ":teacher", question_chest.formspec.teacher_config(pos, data))
+			return
+		end
 
-    allow_metadata_inventory_move = function(pos, from_list, from_index, to_list, to_index, count, player)
-        if minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) then
-            return count
-        end
-        return 0
-    end,
+		if answered[name] then
+			-- Allow chest access if answered correctly
+			minetest.show_formspec(name, formname .. ":rewards",
+				"formspec_version[4]size[10,8]" ..
+				"label[0.5,0.4;You may take your reward.]" ..
+				string.format("list[nodemeta:%d,%d,%d;main;0.5,1;8,1;]", pos.x, pos.y, pos.z) ..
+				"list[current_player;main;0.5,3;8,1;]" ..
+				"listring[nodemeta:"..pos.x..","..pos.y..","..pos.z..";main]" ..
+				"listring[current_player;main]")
+			return
+		end
 
-    on_rightclick = function(pos, _, clicker)
-        local name = clicker:get_player_name()
-        if not name or minetest.is_protected(pos, name) then return end
-
-        local meta = minetest.get_meta(pos)
-        local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
-
-        if minetest.check_player_privs(name, {question_chest_admin = true}) then
-            local qdata = minetest.deserialize(meta:get_string("question_data") or "")
-            minetest.show_formspec(name, "question_chest:teacher_config:" .. minetest.pos_to_string(pos),
-                question_chest.formspec.teacher_config(pos, qdata))
-        elseif answered[name] then
-            refill_rewards(pos, name)
-            minetest.show_formspec(name,
-                "question_chest:real:" .. minetest.pos_to_string(pos),
-                "formspec_version[4]size[10,9]" ..
-                "label[0.2,0.3;Rewards for correctly answering]" ..
-                "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;0.2,0.8;8,1;]" ..
-                "list[current_player;main;0.2,2.5;8,4;]" ..
-                "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
-                "listring[current_player;main]"
-            )
-        else
-            minetest.show_formspec(name,
-                "question_chest:student:" .. minetest.pos_to_string(pos),
-                question_chest.formspec.student_question(pos))
-        end
-    end,
-
-    on_blast = function() end
+		-- Show question
+		minetest.show_formspec(name, formname .. ":student", question_chest.formspec.student_question(pos))
+	end,
 })
 
--- Handle Form Input
+-- Handle Form Responses
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    local name = player:get_player_name()
+	local name = player:get_player_name()
+	local pos_str = formname:match("^question_chest:([^:]+)")
+	local mode = formname:match("^question_chest:[^:]+:(.+)$")
+	if not pos_str or not mode then return end
+	local pos = minetest.string_to_pos(pos_str)
+	if not pos then return end
+	local meta = minetest.get_meta(pos)
 
-    -- TEACHER FORM
-    if formname:match("^question_chest:teacher_config:") then
-        local pos_str = formname:match("^question_chest:teacher_config:(.+)")
-        if not pos_str then return end
-        local pos = minetest.string_to_pos(pos_str)
-        if not pos then return end
+	-- === Student Form ===
+	if mode == "student" and fields.submit_answer then
+		local data = minetest.deserialize(meta:get_string("question_data") or "") or {}
+		local answered = minetest.deserialize(meta:get_string("answered_players") or "{}")
 
-        if fields.quit then
-            minetest.close_formspec(name, formname)
-            return
-        end
+		if answered[name] then return end
 
-        if fields.qtype and not fields.save then
-            minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, {
-                question = fields.question,
-                qtype = fields.qtype,
-                answers = fields.answers,
-                correct = fields.correct
-            }))
-            return
-        end
+		local success = false
+		local correct = data.correct or {}
+		local qtype = data.type or "open"
 
-        local question = (fields.question or ""):gsub("^%s*(.-)%s*$", "%1")
-        local q_type = (fields.qtype == "mcq") and "mcq" or "open"
-        local answers, correct = {}, {}
+		if qtype == "open" then
+			local input = (fields.answer or ""):lower():gsub("^%s*(.-)%s*$", "%1")
+			for _, c in ipairs(correct) do
+				if input == c then
+					success = true break
+				end
+			end
+		elseif qtype == "mcq" then
+			local selected = {}
+			for i, option in ipairs(data.answers or {}) do
+				if fields["opt_" .. i] == "true" then
+					table.insert(selected, option:lower():gsub("^%s*(.-)%s*$", "%1"))
+				end
+			end
+			success = match_answers(selected, correct)
+		end
 
-        for a in string.gmatch(fields.answers or "", "([^,]+)") do
-            local clean = a:gsub("^%s*(.-)%s*$", "%1")
-            if clean ~= "" then table.insert(answers, clean) end
-        end
-        for c in string.gmatch(fields.correct or "", "([^,]+)") do
-            local clean = c:lower():gsub("^%s*(.-)%s*$", "%1")
-            if clean ~= "" then table.insert(correct, clean) end
-        end
+		if success then
+			minetest.chat_send_player(name, "Correct! You may now open the chest.")
+			answered[name] = true
+			meta:set_string("answered_players", minetest.serialize(answered))
+		else
+			minetest.chat_send_player(name, "Incorrect answer. Try again.")
+		end
 
-        if question == "" or #correct == 0 or (q_type == "mcq" and #answers == 0) then
-            minetest.chat_send_player(name, "Please fill all required fields.")
-            return
-        end
+		minetest.close_formspec(name, formname)
+	end
 
-        if q_type == "mcq" then
-            for _, c in ipairs(correct) do
-                local found = false
-                for _, a in ipairs(answers) do
-                    if c == a:lower():gsub("^%s*(.-)%s*$", "%1") then
-                        found = true
-                        break
-                    end
-                end
-                if not found then
-                    minetest.chat_send_player(name, "Correct answers must match one of the MCQ options.")
-                    return
-                end
-            end
-        end
+	-- === Teacher Form ===
+	if mode == "teacher" then
+		-- Dynamic toggle
+		if fields.qtype and not fields.save then
+			local state = {
+				question = fields.question or "",
+				type = fields.qtype,
+				answers = fields.answers or "",
+				correct = fields.correct or ""
+			}
+			minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, state))
+			return
+		end
 
-        local meta = minetest.get_meta(pos)
-        local inv = meta:get_inventory()
-        local rewards = {}
-        for i = 1, inv:get_size("main") do
-            local stack = inv:get_stack("main", i)
-            if not stack:is_empty() then
-                table.insert(rewards, stack:to_table())
-            end
-        end
+		if fields.save then
+			local qtype = fields.qtype or "open"
+			local question = fields.question or ""
+			local answers = parse_csv(fields.answers or "")
+			local correct = parse_csv(fields.correct or "")
 
-        meta:set_string("question_data", minetest.serialize({
-            question = question,
-            type = q_type,
-            answers = answers,
-            correct = correct,
-            rewards = rewards
-        }))
-        meta:set_string("infotext", "Question Chest (configured)")
-        minetest.chat_send_player(name, "Question and reward saved successfully.")
-        return
-    end
+			if question == "" or #correct == 0 or (qtype == "mcq" and #answers == 0) then
+				minetest.chat_send_player(name, "Please fill out all fields.")
+				return
+			end
 
-    -- STUDENT FORM
-    if formname:match("^question_chest:student:") and (fields.submit_answer or fields.answer) then
-        local pos_str = formname:match("^question_chest:student:(.+)")
-        if not pos_str then return end
-        local pos = minetest.string_to_pos(pos_str)
-        if not pos then return end
+			if qtype == "mcq" then
+				local options = {}
+				for _, a in ipairs(answers) do options[a] = true end
+				for _, c in ipairs(correct) do
+					if not options[c] then
+						minetest.chat_send_player(name, "Correct answers must match provided options.")
+						return
+					end
+				end
+			end
 
-        local meta = minetest.get_meta(pos)
-        local data = minetest.deserialize(meta:get_string("question_data") or "") or {}
-        local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
+			local inv = meta:get_inventory()
+			local rewards = {}
+			for i = 1, inv:get_size("main") do
+				local stack = inv:get_stack("main", i)
+				if not stack:is_empty() then
+					table.insert(rewards, stack:to_table())
+				end
+			end
 
-        if answered[name] then
-            minetest.after(0.1, function()
-                minetest.close_formspec(name, formname)
-            end)
-            return
-        end
-
-        local correct = data.correct or {}
-        local success = false
-
-        if data.type == "open" then
-            local response = (fields.answer or ""):lower():gsub("^%s*(.-)%s*$", "%1")
-            for _, c in ipairs(correct) do
-                if response == c then
-                    success = true
-                    break
-                end
-            end
-        elseif data.type == "mcq" and type(data.answers) == "table" then
-            local selected = {}
-            for i = 1, #data.answers do
-                if fields["opt_" .. i] == "true" then
-                    local raw = data.answers[i]
-                    local normalized = raw:lower():gsub("^%s*(.-)%s*$", "%1")
-                    table.insert(selected, normalized)
-                end
-            end
-
-            table.sort(selected)
-            table.sort(correct)
-
-            if #selected == #correct then
-                local match = true
-                for i = 1, #correct do
-                    if selected[i] ~= correct[i] then
-                        match = false
-                        break
-                    end
-                end
-                if match then success = true end
-            end
-        end
-
-        if success then
-            answered[name] = true
-            meta:set_string("answered_players", minetest.serialize(answered))
-            minetest.chat_send_player(name, "Correct! You may now open the chest.")
-        else
-            minetest.chat_send_player(name, "Incorrect answer. Keep trying.")
-        end
-
-        minetest.after(0.1, function()
-            minetest.close_formspec(name, formname)
-        end)
-    end
+			meta:set_string("question_data", minetest.serialize({
+				type = qtype,
+				question = question,
+				answers = (qtype == "mcq") and answers or nil,
+				correct = correct,
+				rewards = rewards
+			}))
+			meta:set_string("infotext", "Question Chest (configured)")
+			minetest.chat_send_player(name, "Question saved.")
+		end
+	end
 end)
