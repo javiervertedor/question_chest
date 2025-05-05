@@ -8,7 +8,6 @@
 -- Licensed under the GNU General Public License v3.0
 -- See https://www.gnu.org/licenses/gpl-3.0.html
 
-
 question_chest = question_chest or {}
 
 local S = minetest.get_translator("question_chest")
@@ -18,6 +17,19 @@ minetest.register_privilege("question_chest_admin", {
     description = "Can configure Question Chests as a teacher",
     give_to_singleplayer = true
 })
+
+local function show_reward_chest(pos, player_name)
+    local formspec =
+        "formspec_version[4]" ..
+        "size[10,9]" ..
+        "label[0.3,0.3;Question Chest - Rewards]" ..
+        "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;0.3,0.8;8,1;]" ..
+        "list[current_player;main;0.3,2.5;8,4;]" ..
+        "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
+        "listring[current_player;main]"
+
+    minetest.show_formspec(player_name, "question_chest:rewards:" .. minetest.pos_to_string(pos), formspec)
+end
 
 minetest.register_node("question_chest:chest", {
     description = S("Question Chest"),
@@ -60,8 +72,7 @@ minetest.register_node("question_chest:chest", {
             minetest.show_formspec(name, "question_chest:teacher_config:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.teacher_config(pos))
         elseif answered[name] then
-            minetest.show_formspec(name, "question_chest:access:" .. minetest.pos_to_string(pos),
-                "size[8,4]label[0.3,1.5;You already answered correctly. You may access the chest.]")
+            show_reward_chest(pos, name)
         else
             minetest.show_formspec(name, "question_chest:student:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.student_question(pos))
@@ -74,9 +85,9 @@ minetest.register_node("question_chest:chest", {
 minetest.register_on_player_receive_fields(function(player, formname, fields)
     local name = player:get_player_name()
 
-    -- Admin config
     if formname:match("^question_chest:teacher_config:") then
         local pos_str = formname:match("^question_chest:teacher_config:(.+)")
+        if not pos_str then return end
         local pos = minetest.string_to_pos(pos_str)
         if not pos then return end
 
@@ -135,13 +146,12 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return
     end
 
-    -- Student answers
     if formname:match("^question_chest:student:") then
         local pos_str = formname:match("^question_chest:student:(.+)")
         if not pos_str then return end
         local pos = minetest.string_to_pos(pos_str)
         if not pos then return end
-    
+
         local meta = minetest.get_meta(pos)
         local data = minetest.deserialize(meta:get_string("question_data") or "") or {}
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
@@ -180,13 +190,10 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             answered[name] = true
             meta:set_string("answered_players", minetest.serialize(answered))
             minetest.chat_send_player(name, "Correct! The chest is now unlocked for you.")
-            minetest.show_formspec(name, "", "")
+            show_reward_chest(pos, name)
         else
-            minetest.chat_send_player(name, "Incorrect answer. Try again.")
-            minetest.after(0.1, function()
-                minetest.show_formspec(name, "question_chest:student:" .. minetest.pos_to_string(pos),
-                    question_chest.formspec.student_question(pos))
-            end)
+            minetest.chat_send_player(name, "Incorrect answer. Keep trying.")
+            minetest.close_formspec(name, formname)
         end
     end
 end)
