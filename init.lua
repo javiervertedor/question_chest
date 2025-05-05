@@ -44,8 +44,11 @@ minetest.register_node("question_chest:chest", {
     end,
 
     can_dig = function(pos, player)
+        local name = player:get_player_name()
+        if not minetest.check_player_privs(name, {question_chest_admin = true}) then
+            return false
+        end
         return minetest.get_meta(pos):get_inventory():is_empty("main")
-            and not minetest.is_protected(pos, player:get_player_name())
     end,
 
     allow_metadata_inventory_take = function(pos, listname, index, stack, player)
@@ -53,7 +56,6 @@ minetest.register_node("question_chest:chest", {
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
             return stack:get_count()
         end
-
         local meta = minetest.get_meta(pos)
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
         if answered[name] then
@@ -87,7 +89,7 @@ minetest.register_node("question_chest:chest", {
             minetest.show_formspec(name, "question_chest:teacher_config:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.teacher_config(pos))
         elseif answered[name] then
-            -- Open real chest
+            -- Open real chest inventory for rewarded student
             minetest.show_formspec(name,
                 "question_chest:real:" .. minetest.pos_to_string(pos),
                 "formspec_version[4]size[10,9]" ..
@@ -98,7 +100,6 @@ minetest.register_node("question_chest:chest", {
                 "listring[current_player;main]"
             )
         else
-            -- Show question form
             minetest.show_formspec(name,
                 "question_chest:student:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.student_question(pos))
@@ -182,7 +183,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return
     end
 
-    if formname:match("^question_chest:student:") and fields.submit_answer then
+    -- ✅ Accept both Submit button and Enter key from text field
+    if formname:match("^question_chest:student:") and (fields.submit_answer or fields.answer) then
         local pos_str = formname:match("^question_chest:student:(.+)")
         if not pos_str then return end
         local pos = minetest.string_to_pos(pos_str)
