@@ -49,7 +49,14 @@ minetest.register_node("question_chest:chest", {
     end,
 
     allow_metadata_inventory_take = function(pos, listname, index, stack, player)
-        if minetest.check_player_privs(player:get_player_name(), {question_chest_admin = true}) then
+        local name = player:get_player_name()
+        if minetest.check_player_privs(name, {question_chest_admin = true}) then
+            return stack:get_count()
+        end
+
+        local meta = minetest.get_meta(pos)
+        local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
+        if answered[name] then
             return stack:get_count()
         end
         return 0
@@ -80,9 +87,20 @@ minetest.register_node("question_chest:chest", {
             minetest.show_formspec(name, "question_chest:teacher_config:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.teacher_config(pos))
         elseif answered[name] then
-            minetest.chat_send_player(name, "You already answered this question.")
+            -- Open real chest
+            minetest.show_formspec(name,
+                "question_chest:real:" .. minetest.pos_to_string(pos),
+                "formspec_version[4]size[10,9]" ..
+                "label[0.2,0.3;Rewards for correctly answering]" ..
+                "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;0.2,0.8;8,1;]" ..
+                "list[current_player;main;0.2,2.5;8,4;]" ..
+                "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
+                "listring[current_player;main]"
+            )
         else
-            minetest.show_formspec(name, "question_chest:student:" .. minetest.pos_to_string(pos),
+            -- Show question form
+            minetest.show_formspec(name,
+                "question_chest:student:" .. minetest.pos_to_string(pos),
                 question_chest.formspec.student_question(pos))
         end
     end,
@@ -174,7 +192,12 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         local data = minetest.deserialize(meta:get_string("question_data") or "") or {}
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
 
-        if answered[name] then return end
+        if answered[name] then
+            minetest.after(0.1, function()
+                minetest.close_formspec(name, formname)
+            end)
+            return
+        end
 
         local correct = data.correct or {}
         local success = false
@@ -182,23 +205,34 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         if data.type == "open" then
             local response = (fields.answer or ""):lower():gsub("^%s*(.-)%s*$", "%1")
             for _, c in ipairs(correct) do
-                if response == c then success = true break end
+                if response == c then
+                    success = true
+                    break
+                end
             end
         elseif data.type == "mcq" and data.answers then
             local selected = {}
             for i = 1, #data.answers do
                 if fields["opt_" .. i] == "true" then
-                    table.insert(selected, data.answers[i])
+                    local label = data.answers[i]:lower():gsub("^%s*(.-)%s*$", "%1")
+                    table.insert(selected, label)
                 end
             end
             if #selected == #correct then
                 local match = true
                 for _, c in ipairs(correct) do
+                    local c_trimmed = c:lower():gsub("^%s*(.-)%s*$", "%1")
                     local found = false
                     for _, s in ipairs(selected) do
-                        if s == c then found = true break end
+                        if s == c_trimmed then
+                            found = true
+                            break
+                        end
                     end
-                    if not found then match = false break end
+                    if not found then
+                        match = false
+                        break
+                    end
                 end
                 if match then success = true end
             end
@@ -207,20 +241,13 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         if success then
             answered[name] = true
             meta:set_string("answered_players", minetest.serialize(answered))
-
-            -- Give reward to player
-            local rewards = data.rewards or {}
-            local inv = player:get_inventory()
-            for _, itemdef in ipairs(rewards) do
-                if itemdef.name and tonumber(itemdef.count or 0) > 0 then
-                    local stack = ItemStack(itemdef)
-                    inv:add_item("main", stack)
-                end
-            end
-
-            minetest.chat_send_player(name, "Correct! You've received your reward.")
+            minetest.chat_send_player(name, "Correct! You may now open the chest.")
         else
             minetest.chat_send_player(name, "Incorrect answer. Keep trying.")
         end
+
+        minetest.after(0.1, function()
+            minetest.close_formspec(name, formname)
+        end)
     end
 end)
