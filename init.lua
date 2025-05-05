@@ -18,6 +18,29 @@ minetest.register_privilege("question_chest_admin", {
     give_to_singleplayer = true
 })
 
+-- Refills the reward inventory (if needed) per student
+local function refill_rewards(pos, player_name)
+    local meta = minetest.get_meta(pos)
+    local data = minetest.deserialize(meta:get_string("question_data") or "")
+    if not data or not data.rewards then return end
+
+    local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
+    local collected = minetest.deserialize(meta:get_string("reward_collected") or "") or {}
+
+    local inv = meta:get_inventory()
+    inv:set_list("main", {}) -- clear chest
+
+    if answered[player_name] and not collected[player_name] then
+        for _, itemdef in ipairs(data.rewards) do
+            local stack = ItemStack(itemdef)
+            inv:add_item("main", stack)
+        end
+        collected[player_name] = true
+        meta:set_string("reward_collected", minetest.serialize(collected))
+    end
+end
+
+-- Chest Node
 minetest.register_node("question_chest:chest", {
     description = S("Question Chest"),
     tiles = {
@@ -38,9 +61,10 @@ minetest.register_node("question_chest:chest", {
 
     on_construct = function(pos)
         local meta = minetest.get_meta(pos)
-        meta:get_inventory():set_size("main", 8 * 1)
+        meta:get_inventory():set_size("main", 8)
         meta:set_string("infotext", S("Question Chest"))
         meta:set_string("answered_players", minetest.serialize({}))
+        meta:set_string("reward_collected", minetest.serialize({}))
     end,
 
     can_dig = function(pos, player)
@@ -53,10 +77,12 @@ minetest.register_node("question_chest:chest", {
 
     allow_metadata_inventory_take = function(pos, listname, index, stack, player)
         local name = player:get_player_name()
+        local meta = minetest.get_meta(pos)
+
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
             return stack:get_count()
         end
-        local meta = minetest.get_meta(pos)
+
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
         if answered[name] then
             return stack:get_count()
@@ -86,10 +112,11 @@ minetest.register_node("question_chest:chest", {
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
+            local qdata = minetest.deserialize(meta:get_string("question_data") or "")
             minetest.show_formspec(name, "question_chest:teacher_config:" .. minetest.pos_to_string(pos),
-                question_chest.formspec.teacher_config(pos))
+                question_chest.formspec.teacher_config(pos, qdata))
         elseif answered[name] then
-            -- Open real chest inventory for rewarded student
+            refill_rewards(pos, name)
             minetest.show_formspec(name,
                 "question_chest:real:" .. minetest.pos_to_string(pos),
                 "formspec_version[4]size[10,9]" ..
@@ -109,16 +136,21 @@ minetest.register_node("question_chest:chest", {
     on_blast = function() end
 })
 
+-- Handle Form Input
 minetest.register_on_player_receive_fields(function(player, formname, fields)
     local name = player:get_player_name()
 
+    -- TEACHER FORM
     if formname:match("^question_chest:teacher_config:") then
         local pos_str = formname:match("^question_chest:teacher_config:(.+)")
         if not pos_str then return end
         local pos = minetest.string_to_pos(pos_str)
         if not pos then return end
 
-        if fields.quit == "true" then return end
+        if fields.quit then
+            minetest.close_formspec(name, formname)
+            return
+        end
 
         if fields.qtype and not fields.save then
             minetest.show_formspec(name, formname, question_chest.formspec.teacher_config(pos, {
@@ -135,7 +167,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         local answers, correct = {}, {}
 
         for a in string.gmatch(fields.answers or "", "([^,]+)") do
-            local clean = a:lower():gsub("^%s*(.-)%s*$", "%1")
+            local clean = a:gsub("^%s*(.-)%s*$", "%1")
             if clean ~= "" then table.insert(answers, clean) end
         end
         for c in string.gmatch(fields.correct or "", "([^,]+)") do
@@ -152,10 +184,13 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             for _, c in ipairs(correct) do
                 local found = false
                 for _, a in ipairs(answers) do
-                    if c == a then found = true break end
+                    if c == a:lower():gsub("^%s*(.-)%s*$", "%1") then
+                        found = true
+                        break
+                    end
                 end
                 if not found then
-                    minetest.chat_send_player(name, "Correct answers must match options.")
+                    minetest.chat_send_player(name, "Correct answers must match one of the MCQ options.")
                     return
                 end
             end
@@ -183,7 +218,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return
     end
 
-    -- ✅ Accept both Submit button and Enter key from text field
+    -- STUDENT FORM
     if formname:match("^question_chest:student:") and (fields.submit_answer or fields.answer) then
         local pos_str = formname:match("^question_chest:student:(.+)")
         if not pos_str then return end
@@ -212,26 +247,23 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     break
                 end
             end
-        elseif data.type == "mcq" and data.answers then
+        elseif data.type == "mcq" and type(data.answers) == "table" then
             local selected = {}
             for i = 1, #data.answers do
                 if fields["opt_" .. i] == "true" then
-                    local label = data.answers[i]:lower():gsub("^%s*(.-)%s*$", "%1")
-                    table.insert(selected, label)
+                    local raw = data.answers[i]
+                    local normalized = raw:lower():gsub("^%s*(.-)%s*$", "%1")
+                    table.insert(selected, normalized)
                 end
             end
+
+            table.sort(selected)
+            table.sort(correct)
+
             if #selected == #correct then
                 local match = true
-                for _, c in ipairs(correct) do
-                    local c_trimmed = c:lower():gsub("^%s*(.-)%s*$", "%1")
-                    local found = false
-                    for _, s in ipairs(selected) do
-                        if s == c_trimmed then
-                            found = true
-                            break
-                        end
-                    end
-                    if not found then
+                for i = 1, #correct do
+                    if selected[i] ~= correct[i] then
                         match = false
                         break
                     end
