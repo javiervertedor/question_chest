@@ -1,76 +1,82 @@
-question_chest = question_chest or {}
-question_chest.formspec = {}
+local function esc(str)
+	return minetest.formspec_escape(str or "")
+end
 
-local esc = minetest.formspec_escape
+local function table_to_csv(tbl)
+	if type(tbl) ~= "table" then return "" end
+	return table.concat(tbl, ", ")
+end
 
--- STUDENT FORM
-function question_chest.formspec.student_question(pos)
+local M = {}
+
+-- === Teacher Form ===
+function M.teacher_config(pos)
 	local meta = minetest.get_meta(pos)
-	local data = minetest.deserialize(meta:get_string("question_data") or "") or {}
-	local qtype = data.type or "open"
-	local question = esc(data.question or "")
-	local answers = data.answers or {}
+	local qtype = meta:get_string("question_type") or "open"
+	local question = meta:get_string("question") or ""
+	local open_answers = meta:get_string("open_answers") or ""
+	local mcq_answers = meta:get_string("mcq_answers") or ""
+	local mcq_options = minetest.deserialize(meta:get_string("mcq_options") or "") or {}
 
-	local fs = "formspec_version[4]size[10,8]"
-	fs = fs .. "label[0.5,0.4;" .. question .. "]"
+	local fs = "formspec_version[4]size[10,11]" ..
+		"bgcolor[#1e1e1eBB;true]" ..
+		"key_enter[save]" ..
+		"key_escape[cancel]" ..
+		"label[0.2,0.3;Question:]" ..
+		"field[2.5,0.3;7,1;question;;" .. esc(question) .. "]" ..
+		"label[0.2,1.2;Question Type:]" ..
+		"dropdown[2.5,1.2;3.5,1;question_type;open,mcq;" .. (qtype == "mcq" and 2 or 1) .. "]"
 
 	if qtype == "open" then
-		fs = fs .. "field[0.5,1.5;9,1;answer;Your answer;]"
-		fs = fs .. "field_close_on_enter[answer;false]"
+		fs = fs ..
+			"label[0.2,2.2;Correct Answers (comma-separated):]" ..
+			"field[0.2,2.7;9.5,1;open_answers;;" .. esc(open_answers) .. "]"
 	else
-		fs = fs .. "field[hidden_selected;selected_choices;]"
-		for i, option in ipairs(answers) do
-			fs = fs .. string.format("checkbox[0.5,%f;opt_%d;%s;false]", 1.2 + i * 0.6, i, esc(option))
-		end
+		fs = fs ..
+			"label[0.2,2.2;MCQ Options (comma-separated):]" ..
+			"field[0.2,2.7;9.5,1;mcq_options;;" .. esc(table_to_csv(mcq_options)) .. "]" ..
+			"label[0.2,3.6;Correct Answers (comma-separated):]" ..
+			"field[0.2,4.1;9.5,1;mcq_answers;;" .. esc(mcq_answers) .. "]"
 	end
 
-	fs = fs .. "button[7.5,6.6;2,1;submit_answer;Submit]"
-	fs = fs .. "button_exit[5.2,6.6;2,1;cancel;Close]"
-	fs = fs .. "key_enter[submit_answer]"
-	fs = fs .. "key_escape[cancel]"
+	fs = fs ..
+		"label[0.2,5.1;Place reward items below:]" ..
+		string.format("list[nodemeta:%d,%d,%d;main;0.2,5.6;8,1;]", pos.x, pos.y, pos.z) ..
+		"label[0.2,7;Your Inventory:]" ..
+		"list[current_player;main;0.2,7.5;8,4;]" ..
+		"listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
+		"listring[current_player;main]" ..
+		"button[2.5,10.3;2,1;cancel;Close]" ..
+		"button[5.1,10.3;2.5,1;save;Save]"
+
 	return fs
 end
 
--- TEACHER FORM
-function question_chest.formspec.teacher_config(pos, data)
-	data = data or {}
+-- === Student: Open-Ended ===
+function M.open(question)
+	return "formspec_version[4]size[8,5.5]" ..
+		"bgcolor[#1e1e1eBB;true]" ..
+		"key_enter[submit_answer]" ..
+		"key_escape[cancel]" ..
+		"label[0.3,0.5;" .. esc(question) .. "]" ..
+		"field[0.3,1.5;7.4,1;answer;;]" ..
+		"button[3,3.5;2,1;submit_answer;Submit]"
+end
 
-	local question = esc(data.question or "")
-	local qtype = data.type or "open"
-	local answers = type(data.answers) == "table" and table.concat(data.answers, ", ") or esc(data.answers or "")
-	local correct = type(data.correct) == "table" and table.concat(data.correct, ", ") or esc(data.correct or "")
+-- === Student: MCQ ===
+function M.mcq(question, options)
+	local fs = "formspec_version[4]size[8,6]" ..
+		"bgcolor[#1e1e1eBB;true]" ..
+		"key_enter[submit_answer]" ..
+		"key_escape[cancel]" ..
+		"label[0.3,0.3;" .. esc(question) .. "]"
 
-	local fs = "formspec_version[4]size[10,11]"
-	fs = fs .. "label[0.5,0.2;Configure Question Chest]"
-
-	fs = fs .. "label[0.5,0.7;Question:]"
-	fs = fs .. "field[2.5,0.7;7,1;question;;" .. question .. "]"
-	fs = fs .. "field_close_on_enter[question;false]"
-
-	fs = fs .. "label[0.5,1.5;Question Type:]"
-	fs = fs .. "dropdown[2.5,1.4;4;qtype;open,mcq;" .. (qtype == "mcq" and 2 or 1) .. "]"
-
-	if qtype == "mcq" then
-		fs = fs .. "label[0.5,2.3;Correct Answers (comma-separated):]"
-		fs = fs .. "field[0.5,2.9;9,1;correct;;" .. correct .. "]"
-		fs = fs .. "field_close_on_enter[correct;false]"
-		fs = fs .. "label[0.5,3.5;MCQ Options (comma-separated):]"
-		fs = fs .. "field[0.5,4.1;9,1;answers;;" .. answers .. "]"
-		fs = fs .. "field_close_on_enter[answers;false]"
-	else
-		fs = fs .. "label[0.5,2.3;Open-ended question. No options needed.]"
+	for i, opt in ipairs(options) do
+		fs = fs .. string.format("checkbox[0.4,%0.8f;opt%d;%s;false]", 0.8 + i * 0.6, i, esc(opt))
 	end
 
-	fs = fs .. "label[0.5,5.0;Place rewards in the chest inventory below:]"
-	fs = fs .. string.format("list[nodemeta:%d,%d,%d;main;0.5,5.5;8,1;]", pos.x, pos.y, pos.z)
-	fs = fs .. "list[current_player;main;0.5,7.2;8,1;]"
-	fs = fs .. "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]"
-	fs = fs .. "listring[current_player;main]"
-
-	fs = fs .. "button[6.5,9.4;2.5,1;save;Save]"
-	fs = fs .. "button_exit[3.5,9.4;2,1;quit;Close]"
-	fs = fs .. "key_enter[save]"
-	fs = fs .. "key_escape[quit]"
-
+	fs = fs .. "button[3,5;2,1;submit_answer;Submit]"
 	return fs
 end
+
+return M
