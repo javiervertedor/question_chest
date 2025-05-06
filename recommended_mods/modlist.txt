@@ -43,4 +43,5 @@ turtlebots_classroom
 xdecor
 travelnet
 soothing_32
+edit skin
 unified_inventory
