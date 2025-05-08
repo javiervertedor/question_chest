@@ -114,7 +114,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 
                     minetest.show_formspec(name, "question_chest:chest_open",
                         "formspec_version[4]" ..
-                        "size[9,10]" ..
+                        "size[10,9]" ..
                         "label[0.3,0.3;You may now access the reward chest.]" ..
                         "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;1,1;4,1;]" ..
                         "list[current_player;main;0.5,3.0;8,4;]" ..
