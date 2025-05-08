@@ -1,15 +1,14 @@
--- Register the admin privilege
+-- Register admin privilege
 minetest.register_privilege("question_chest_admin", {
     description = "Can configure Question Chest",
     give_to_singleplayer = true,
 })
 
--- Load modular UI files
-local modpath = minetest.get_modpath("question_chest")
-local teacher_form = dofile(modpath .. "/teacher_form.lua")
-local student_form = dofile(modpath .. "/student_form.lua")
+-- Load form modules
+local teacher_form = dofile(minetest.get_modpath("question_chest") .. "/teacher_form.lua")
+local student_form = dofile(minetest.get_modpath("question_chest") .. "/student_form.lua")
 
--- Register the Question Chest node
+-- Register the Question Chest
 minetest.register_node("question_chest:chest", {
     description = "Question Chest",
     tiles = {
@@ -34,65 +33,102 @@ minetest.register_node("question_chest:chest", {
     end,
 
     can_dig = function(pos, player)
-        return minetest.check_player_privs(player, {question_chest_admin = true})
+        if not minetest.check_player_privs(player, {question_chest_admin = true}) then
+            return false
+        end
+        return minetest.get_meta(pos):get_inventory():is_empty("main")
     end,
 
     on_rightclick = function(pos, node, clicker)
         local name = clicker:get_player_name()
-        if not minetest.check_player_privs(name, {question_chest_admin = true}) then
-            minetest.chat_send_player(name, "You do not have permission to configure this chest.")
-            return
-        end
-
-        -- Store position for form handlers
+        local meta = minetest.get_meta(pos)
         clicker:set_attribute("question_chest:pos", minetest.pos_to_string(pos))
 
-        local meta = minetest.get_meta(pos)
-        local raw_data = meta:get_string("data")
-        local current_data = minetest.parse_json(raw_data) or {}
-
-        minetest.show_formspec(name, "question_chest:teacher_config", teacher_form.get(pos, current_data))
+        if minetest.check_player_privs(name, {question_chest_admin = true}) then
+            local raw_data = meta:get_string("data")
+            local data = minetest.parse_json(raw_data) or {}
+            minetest.show_formspec(name, "question_chest:teacher_config", teacher_form.get(pos, data))
+        else
+            local raw_data = meta:get_string("data")
+            local data = minetest.parse_json(raw_data)
+            if type(data) ~= "table" then
+                data = { question = "Error: No question." }
+            end
+            minetest.show_formspec(name, "question_chest:student_form", student_form.get(pos, data))
+        end
     end,
 })
 
--- Handle teacher form submission
+-- Handle form submissions
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname ~= "question_chest:teacher_config" then return false end
-
     local name = player:get_player_name()
     local pos_string = player:get_attribute("question_chest:pos")
-    if not pos_string then return true end
-
+    if not pos_string then return false end
     local pos = minetest.string_to_pos(pos_string)
-    if not pos then return true end
-
+    if not pos then return false end
     local meta = minetest.get_meta(pos)
-    if not minetest.check_player_privs(name, {question_chest_admin = true}) then
-        return true
-    end
 
-    if fields.save then
-        local question = (fields.question_input or ""):trim()
-        local answers_str = (fields.correct_answers or ""):trim()
+    -- TEACHER form
+    if formname == "question_chest:teacher_config" then
+        if not minetest.check_player_privs(name, {question_chest_admin = true}) then return true end
 
-        if question == "" or answers_str == "" then
-            minetest.chat_send_player(name, "Please enter a question and at least one correct answer.")
+        if fields.save then
+            local question = (fields.question_input or ""):trim()
+            local answers_str = (fields.correct_answers or ""):trim()
+
+            if question == "" or answers_str == "" then
+                minetest.chat_send_player(name, "Please enter a question and at least one correct answer.")
+                return true
+            end
+
+            local answers = {}
+            for answer in answers_str:gmatch("[^,]+") do
+                table.insert(answers, answer:lower():trim())
+            end
+
+            meta:set_string("data", minetest.write_json({
+                question = question,
+                answers = answers
+            }))
+            minetest.chat_send_player(name, "Question and answers saved.")
             return true
         end
+        return false
+    end
 
-        local answers = {}
-        for answer in answers_str:gmatch("[^,]+") do
-            table.insert(answers, answer:lower():trim())
+    -- STUDENT form
+    if formname == "question_chest:student_form" then
+        if fields.quit or fields.cancel then
+            return true -- ESC pressed
         end
 
-        local data = {
-            question = question,
-            answers = answers
-        }
+        if fields.submit_answer then
+            local raw_data = meta:get_string("data")
+            local data = minetest.parse_json(raw_data)
+            if type(data) ~= "table" then return true end
 
-        meta:set_string("data", minetest.write_json(data))
-        minetest.chat_send_player(name, "Question and answers saved.")
-        return true
+            local submitted = (fields.student_answer or ""):lower():trim()
+            for _, answer in ipairs(data.answers or {}) do
+                if submitted == answer then
+                    minetest.chat_send_player(name, "Correct! You may collect your reward.")
+
+                    minetest.show_formspec(name, "question_chest:chest_open",
+                        "formspec_version[4]" ..
+                        "size[9,10]" ..
+                        "label[0.3,0.3;You may now access the reward chest.]" ..
+                        "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;1,1;4,1;]" ..
+                        "list[current_player;main;0.5,3.0;8,4;]" ..
+                        "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
+                        "listring[current_player;main]"
+                    )
+                    return true
+                end
+            end
+
+            minetest.chat_send_player(name, "Incorrect. Try again.")
+            minetest.close_formspec(name, formname)
+            return true
+        end
     end
 
     return false
