@@ -16,8 +16,7 @@ function M.get(pos, data)
         "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;0.3,6.0;4,1;]" ..
         "list[current_player;main;0.3,7.3;8,1;]" ..
         "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
-        "listring[current_player;main]" ..
-        "key_enter = save"
+        "listring[current_player;main]"
 end
 
 return M
