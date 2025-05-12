@@ -42,7 +42,8 @@ minetest.register_node("question_chest:chest", {
         local name = clicker:get_player_name()
         local meta = minetest.get_meta(pos)
         local pos_key = minetest.pos_to_string(pos):gsub("[%s%,%(%)]", "_")
-        clicker:set_attribute("question_chest:pos", minetest.pos_to_string(pos))
+        clicker:get_meta():set_string("question_chest:pos", minetest.pos_to_string(pos))
+
 
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
@@ -80,7 +81,8 @@ minetest.register_node("question_chest:chest", {
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
     local name = player:get_player_name()
-    local pos_string = player:get_attribute("question_chest:pos")
+    local pos_string = player:get_meta():get_string("question_chest:pos")
+
     local pos = minetest.string_to_pos(pos_string or "")
     if not pos then return false end
     local meta = minetest.get_meta(pos)
