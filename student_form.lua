@@ -5,7 +5,7 @@ function M.get(pos, data)
 
     return
         "formspec_version[4]" ..
-        "size[11,7]" ..
+        "size[11,7.5]" ..
         "textarea[0.3,0.2;10,2;;;"
         .. question .. "]" ..
         "field[0.3,2.5;10,1;student_answer;;]" ..

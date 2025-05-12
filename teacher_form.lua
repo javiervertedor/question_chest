@@ -20,7 +20,7 @@ function M.get(pos, data)
     return
         "formspec_version[4]" ..
         "size[10.5,11.5]" ..
-        "key_enter[save]" ..
+        "key_enter[submit]" ..
         "key_escape[close]" ..
         "label[0.3,0.3;TEACHER MODE]" ..
         "label[0.3,0.9;Enter a question:]" ..
@@ -28,7 +28,7 @@ function M.get(pos, data)
         "label[0.3,2.5;Correct Answers (comma-separated):]" ..
         "field[0.3,2.8;9,0.8;correct_answers;;" .. answers .. "]" ..
         "button_exit[2.5,4;2.5,1;close;Close]" ..
-        "button[5.0,4;2.5,1;save;Save]" ..
+        "button[5.0,4;2.5,1;submit;Save]" ..
         "label[0.3,5.4;Place reward items below:]" ..
         "list[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main;0.3,5.8;8,1;]" ..
         "label[0.3,7.3;Your Inventory:]" ..
