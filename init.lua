@@ -20,4 +20,4 @@ local chest_base = dofile(minetest.get_modpath("question_chest") .. "/chest_base
 
 -- Load chest types
 dofile(minetest.get_modpath("question_chest") .. "/open_question.lua")
--- dofile(minetest.get_modpath("question_chest") .. "/mc_question.lua") -- coming soon
+dofile(minetest.get_modpath("question_chest") .. "/mc_question.lua")
