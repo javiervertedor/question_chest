@@ -35,7 +35,7 @@ function M.get(pos, data)
         "list[current_player;main;0.3,7.6;8,1;]" ..
         "listring[nodemeta:" .. pos.x .. "," .. pos.y .. "," .. pos.z .. ";main]" ..
         "listring[current_player;main]" ..
-        "label[0.3,9;" .. minetest.formspec_escape(player_list_label) .. "]"
+        "textarea[0.3,9.5;9.5,1.5;answered_list;;" .. minetest.formspec_escape(player_list_label) .. "]"
 end
 
 return M
