@@ -39,26 +39,25 @@ chest_base.register_chest("question_chest:chest", {
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
-            minetest.show_formspec(name, "question_chest:teacher_config", teacher_form.get(pos, data))
+            minetest.show_formspec(name, "question_chest:open_teacher", teacher_form.get(pos, data))
         elseif answered[name] then
             minetest.chat_send_player(name, "You already answered this question correctly.")
             chest_open.show(pos, name, meta)
         else
-            minetest.show_formspec(name, "question_chest:student_form", student_form.get(pos, data))
+            minetest.show_formspec(name, "question_chest:open_student", student_form.get(pos, data))
         end
     end,
 })
 
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname ~= "question_chest:teacher_config" then return false end
-
     local name = player:get_player_name()
     local pos_string = player:get_meta():get_string("question_chest:pos")
     local pos = minetest.string_to_pos(pos_string or "")
     if not pos then return false end
     local meta = minetest.get_meta(pos)
 
-    if fields.submit then
+    -- Open-ended TEACHER FORM
+    if formname == "question_chest:open_teacher" and fields.submit then
         local question = (fields.question_input or ""):trim()
         local answers_str = (fields.correct_answers or ""):trim()
 
@@ -86,24 +85,14 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return true
     end
 
-    return false
-end)
-
-minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname == "question_chest:student_form" then
-        local name = player:get_player_name()
-        local pos_string = player:get_meta():get_string("question_chest:pos")
-        local pos = minetest.string_to_pos(pos_string or "")
-        if not pos then return false end
-
-        local meta = minetest.get_meta(pos)
+    -- Open-ended STUDENT FORM
+    if formname == "question_chest:open_student" and fields.submit_answer then
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-
         local submitted = (fields.student_answer or ""):lower():trim()
+
         for _, answer in ipairs(data.answers or {}) do
             if submitted == answer then
                 minetest.chat_send_player(name, "Correct! You may collect your reward.")
-                local chest_open = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
                 chest_open.show(pos, name, meta)
                 return true
             end
@@ -113,4 +102,6 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         minetest.close_formspec(name, formname)
         return true
     end
+
+    return false
 end)

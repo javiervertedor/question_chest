@@ -3,10 +3,6 @@ local student_form     = dofile(minetest.get_modpath("question_chest") .. "/mc_s
 local teacher_form     = dofile(minetest.get_modpath("question_chest") .. "/mc_teacher_form.lua")
 local chest_open       = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
 
-local function get_chest_key(pos)
-    return minetest.pos_to_string(pos):gsub("[%s%,%(%)]", "_")
-end
-
 chest_base.register_chest("question_chest:mc_chest", {
     description = "Multiple Choice Question Chest",
     tiles = {
@@ -39,17 +35,15 @@ chest_base.register_chest("question_chest:mc_chest", {
         local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
 
         if minetest.check_player_privs(name, {question_chest_admin = true}) then
-            minetest.show_formspec(name, "question_chest:teacher_config", teacher_form.get(pos, data))
+            minetest.show_formspec(name, "question_chest:mc_teacher", teacher_form.get(pos, data))
         elseif answered[name] then
-            minetest.chat_send_player(name, "You already answered this question correctly.")
             chest_open.show(pos, name, meta)
         else
-            minetest.show_formspec(name, "question_chest:student_form", student_form.get(pos, data))
+            minetest.show_formspec(name, "question_chest:mc_student", student_form.get(pos, data))
         end
     end,
 })
 
--- Handle teacher and student form submissions
 minetest.register_on_player_receive_fields(function(player, formname, fields)
     local name = player:get_player_name()
     local pos_string = player:get_meta():get_string("question_chest:pos")
@@ -57,8 +51,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     if not pos then return false end
     local meta = minetest.get_meta(pos)
 
-    -- TEACHER FORM
-    if formname == "question_chest:teacher_config" and fields.submit then
+    -- === TEACHER FORM ===
+    if formname == "question_chest:mc_teacher" and fields.submit then
         local question = (fields.question_input or ""):trim()
         local options_str = (fields.options_input or ""):trim()
         local answers_str = (fields.correct_answers or ""):trim()
@@ -78,7 +72,6 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             table.insert(answers, item:lower():trim())
         end
 
-        -- Check that all answers are within options
         local option_lookup = {}
         for _, opt in ipairs(options) do
             option_lookup[opt:lower()] = true
@@ -108,16 +101,15 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return true
     end
 
-    -- STUDENT FORM
-    if formname == "question_chest:student_form" then
-        -- Ignore if not submit button
-        if not fields.submit_answer or fields.submit_answer ~= "true" then return false end
-
+    -- === STUDENT FORM ===
+    if formname == "question_chest:mc_student" and fields.submit_answer then
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-        local selected = {}
+        local shuffled_json = player:get_meta():get_string("question_chest:shuffled")
+        local shuffled = minetest.parse_json(shuffled_json or "[]") or {}
 
-        for i, opt in ipairs(data.options or {}) do
-            if fields["option_" .. i] == "true" then
+        local selected = {}
+        for i, opt in ipairs(shuffled) do
+            if fields["opt_" .. i] == "true" then
                 table.insert(selected, opt:lower():trim())
             end
         end
@@ -141,6 +133,9 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         if arrays_equal(selected, correct) then
             minetest.chat_send_player(name, "Correct! You may collect your reward.")
             chest_open.show(pos, name, meta)
+            local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
+            answered[name] = true
+            meta:set_string("answered_players", minetest.serialize(answered))
         else
             minetest.chat_send_player(name, "Incorrect. Try again.")
             minetest.close_formspec(name, formname)
