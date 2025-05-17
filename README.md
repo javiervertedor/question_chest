@@ -1,90 +1,81 @@
-# 🎓 Luanti Education Mod: `question_chest`
+# 📦 Question Chest Mod for Luanti (Educational Edition)
 
-An interactive and configurable question chest for Luanti (formerly Minetest) designed specifically for classroom use. Teachers can place reward chests that students must **unlock by answering questions** correctly. A powerful tool for combining gamification with learning.
-
----
-
-## 🚀 Features
-
-- 📦 Place indestructible, protected chests that reward players upon correct answers
-- ✅ Supports **open-ended** and **multiple-choice** questions
-- 🎁 Each question has a **custom reward** (item + count)
-- 🔁 **MCQ answers are shuffled** randomly per student
-- 🧠 Students unlock one question at a time and earn rewards as they progress
-- 📚 **Answer log**: track which students answered which questions
-- 🧑‍🏫 Teacher-only configuration interface (requires `question_chest_admin` privilege)
-- 🧾 Optional integration with Luanti’s `whitelist.txt` for tracking participation
-- ✏️ Add/Edit/Delete multiple questions per chest
-- 🔒 Built on top of `protector:chest` for safe use in classroom areas
+This Luanti mod adds **interactive question chests** for classroom use. Teachers can create open-ended and multiple-choice questions tied to in-game rewards. Students must answer correctly to access the rewards — ideal for gamified learning!
 
 ---
 
-## 🧑‍🏫 Teacher Setup
+## ✨ Features
 
-1. **Right-click** the question chest (must have `question_chest_admin` privilege)
-2. Configure:
-   - Question text
-   - Question type (`open-ended` or `multiple-choice`)
-   - Answer list and correct options
-   - Reward (itemstring + count)
-3. Add multiple questions, preview existing ones, and view who has completed each
-4. Use the "📦 Edit Rewards" button to select the reward for each question
+### ✅ Two Chest Types
+- **Open Question Chest** (`question_chest:chest`)
+  - Students must type a correct free-text answer
+- **Multiple Choice Chest** (`question_chest:mc_chest`)
+  - Students must select all correct options from checkboxes
 
----
+### 🎓 Teacher Tools
+- Place and configure chests if you have the `question_chest_admin` privilege
+- GUI includes:
+  - Question input
+  - Answers (comma-separated)
+  - (For MCQ) Options (comma-separated)
+  - Reward item slots
+  - Save/Close buttons
+  - Auto-cleared answer tracking per new question
+- Preview list of students who answered correctly
 
-## 👩‍🎓 Student Interaction
+### 🧠 Student Interaction
+- Answer a question via GUI form
+- Immediate feedback: **Correct / Incorrect**
+- If correct, chest opens with reward
+- Rewards are one-time and player-specific
+- Partial collection supported — students may return to finish collecting
 
-- Right-click the chest
-- Answer the current question shown
-- If correct:
-  - Receive the reward for that question
-  - Progress to the next question
-- If incorrect:
-  - Chest closes (natural cooldown)
-  - Retry by clicking again
-- When all questions are completed:
-  - Chest appears empty for that student
-
----
-
-## 🔧 Optional Features (Planned)
-
-- Retry cooldown or attempt limits
-- `question_chest:tool` for copying/pasting configs between chests
-- CSV export of student answers
-- Unlock questions in timed or sequential formats
+### 🔐 Protection & Fairness
+- Students cannot destroy question chests
+- Rewards are stored in detached inventories (per-student)
+- Students cannot insert items into the chest
 
 ---
 
-## 📁 Installation
+## 🛠 Setup
 
-1. Clone or download this repository into your `mods/` folder:
-    ```bash
-    git clone https://github.com/javiervertedor/question_chest.git
-    ```
-2. Enable the mod in your world’s `world.mt`:
-    ```
-    load_mod_question_chest = true
-    ```
-3. (Optional) Install `protector` mod if not already installed
+1. Place this mod in your `mods/` folder
+2. Add it to your `world.mt`:
+   ```
+   load_mod_question_chest = true
+   ```
+3. Ensure you're using a Luanti version that supports detached inventories and `minetest.show_formspec`
 
 ---
 
-## 🔐 Privileges
+## 🔑 Privileges
 
-| Privilege               | Description                           |
-|------------------------|---------------------------------------|
-| `question_chest_admin` | Allows configuring and editing chests |
-
----
-
-## 📜 License
-
-GNU General Public License v3.0.
+- Grant yourself the `question_chest_admin` privilege to configure chests:
+  ```
+  /grant teacher question_chest_admin
+  ```
 
 ---
 
-## 👨‍💻 Development
+## 📁 File Structure
 
-This project was designed for classroom gamification in Luanti. Contributions and suggestions are welcome.
+| File | Description |
+|------|-------------|
+| `init.lua` | Mod entry point, loads chest types |
+| `chest_base.lua` | Registers the base node for question chests |
+| `chest_open.lua` | Manages student-specific reward inventory |
+| `open_question.lua` | Logic for open-ended question chests |
+| `mc_question.lua` | Logic for multiple-choice question chests |
+| `student_form.lua` | Open-ended student form layout |
+| `teacher_form.lua` | Open-ended teacher form layout |
+| `mc_student_form.lua` | MCQ student form with checkboxes |
+| `mc_teacher_form.lua` | MCQ teacher form with option/answer input |
+| `reward_form.lua` | Reward collection inventory form |
 
+---
+
+## 📚 License
+
+This mod is licensed under the **GNU General Public License v3.0**
+
+See [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html)
