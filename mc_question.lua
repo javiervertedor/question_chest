@@ -1,7 +1,7 @@
-local chest_base       = dofile(minetest.get_modpath("question_chest") .. "/chest_base.lua")
-local student_form     = dofile(minetest.get_modpath("question_chest") .. "/mc_student_form.lua")
-local teacher_form     = dofile(minetest.get_modpath("question_chest") .. "/mc_teacher_form.lua")
-local chest_open       = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
+local chest_base = dofile(minetest.get_modpath("question_chest") .. "/chest_base.lua")
+local student_form = dofile(minetest.get_modpath("question_chest") .. "/mc_student_form.lua")
+local teacher_form = dofile(minetest.get_modpath("question_chest") .. "/mc_teacher_form.lua")
+local chest_open = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
 
 chest_base.register_chest("question_chest:mc_chest", {
     description = "Multiple Choice Question Chest",
@@ -50,6 +50,16 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     local pos = minetest.string_to_pos(pos_string or "")
     if not pos then return false end
     local meta = minetest.get_meta(pos)
+    local pmeta = player:get_meta()
+
+    -- Handle checkbox toggles and save to metadata
+    if formname == "question_chest:mc_student" then
+        for field, value in pairs(fields) do
+            if field:match("^opt_%d+$") then
+                pmeta:set_string("question_chest:" .. field, value)
+            end
+        end
+    end
 
     -- === TEACHER FORM ===
     if formname == "question_chest:mc_teacher" and fields.submit then
@@ -72,17 +82,6 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             table.insert(answers, item:lower():trim())
         end
 
-        local option_lookup = {}
-        for _, opt in ipairs(options) do
-            option_lookup[opt:lower()] = true
-        end
-        for _, answer in ipairs(answers) do
-            if not option_lookup[answer] then
-                minetest.chat_send_player(name, "Error: One or more correct answers are not listed in the options.")
-                return true
-            end
-        end
-
         local reward_serialized = {}
         for _, stack in ipairs(meta:get_inventory():get_list("main")) do
             table.insert(reward_serialized, stack:to_string())
@@ -101,16 +100,17 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         return true
     end
 
-    -- === STUDENT FORM ===
+    -- === STUDENT SUBMISSION ===
     if formname == "question_chest:mc_student" and fields.submit_answer then
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-        local shuffled_json = player:get_meta():get_string("question_chest:shuffled")
-        local shuffled = minetest.parse_json(shuffled_json or "[]") or {}
+        local options = data.options or {}
 
         local selected = {}
-        for i, opt in ipairs(shuffled) do
-            if fields["opt_" .. i] == "true" then
-                table.insert(selected, opt:lower():trim())
+        for i, option in ipairs(options) do
+            local key = "question_chest:opt_" .. i
+            local value = pmeta:get_string(key)
+            if value == "true" then
+                table.insert(selected, option:lower():trim())
             end
         end
 
@@ -139,6 +139,11 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         else
             minetest.chat_send_player(name, "Incorrect. Try again.")
             minetest.close_formspec(name, formname)
+        end
+
+        -- Clear metadata
+        for i = 1, #options do
+            pmeta:set_string("question_chest:opt_" .. i, "")
         end
 
         return true
