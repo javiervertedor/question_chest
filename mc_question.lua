@@ -3,6 +3,19 @@ local student_form = dofile(minetest.get_modpath("question_chest") .. "/mc_stude
 local teacher_form = dofile(minetest.get_modpath("question_chest") .. "/mc_teacher_form.lua")
 local chest_open = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
 
+-- Helper to shuffle choices
+local function shuffle_options(options)
+    local shuffled = {}
+    for i, opt in ipairs(options) do
+        table.insert(shuffled, {idx = i, text = opt})
+    end
+    for i = #shuffled, 2, -1 do
+        local j = math.random(i)
+        shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+    end
+    return shuffled
+end
+
 chest_base.register_chest("question_chest:mc_chest", {
     description = "Multiple Choice Question Chest",
     tiles = {
@@ -39,7 +52,24 @@ chest_base.register_chest("question_chest:mc_chest", {
         elseif answered[name] then
             chest_open.show(pos, name, meta)
         else
-            minetest.show_formspec(name, "question_chest:mc_student", student_form.get(pos, data))
+            -- Shuffle options and create a label map
+            local shuffled = shuffle_options(data.options or {})
+            local label_map = {}
+            local shuffled_options = {}
+
+            for i, opt in ipairs(shuffled) do
+                table.insert(shuffled_options, opt.text)
+                label_map["opt_" .. i] = opt.text
+            end
+
+            -- Save the label map to player metadata
+            clicker:get_meta():set_string("question_chest:label_map", minetest.write_json(label_map))
+
+            -- Show the shuffled student form
+            minetest.show_formspec(name, "question_chest:mc_student", student_form.get(pos, {
+                question = data.question,
+                options = shuffled_options
+            }))
         end
     end,
 })
@@ -52,16 +82,20 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     local meta = minetest.get_meta(pos)
     local pmeta = player:get_meta()
 
-    -- Handle checkbox toggles and save to metadata
-    if formname == "question_chest:mc_student" then
-        for field, value in pairs(fields) do
-            if field:match("^opt_%d+$") then
-                pmeta:set_string("question_chest:" .. field, value)
+    -- Store checkbox values as player metadata on click (for all opt_# fields)
+    for field, value in pairs(fields) do
+        if field:match("^opt_%d+$") then
+            local label_map = minetest.parse_json(pmeta:get_string("question_chest:label_map") or "{}") or {}
+            local label = label_map[field]
+            if label and value == "true" then
+                pmeta:set_string("question_chest:selected_" .. field, label)
+            elseif label then
+                pmeta:set_string("question_chest:selected_" .. field, "")
             end
         end
     end
 
-    -- === TEACHER FORM ===
+    -- === TEACHER MODE ===
     if formname == "question_chest:mc_teacher" and fields.submit then
         local question = (fields.question_input or ""):trim()
         local options_str = (fields.options_input or ""):trim()
@@ -103,24 +137,28 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     -- === STUDENT SUBMISSION ===
     if formname == "question_chest:mc_student" and fields.submit_answer then
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-        local options = data.options or {}
+        local correct_answers = data.answers or {}
 
-        local selected = {}
-        for i, option in ipairs(options) do
-            local key = "question_chest:opt_" .. i
-            local value = pmeta:get_string(key)
-            if value == "true" then
-                table.insert(selected, option:lower():trim())
+        -- Retrieve the label map from player metadata
+        local label_map = minetest.parse_json(pmeta:get_string("question_chest:label_map") or "{}") or {}
+        local selected_answers = {}
+
+        -- Collect selected answers from player metadata
+        for field, _ in pairs(label_map) do
+            local saved_answer = pmeta:get_string("question_chest:selected_" .. field)
+            if saved_answer and saved_answer ~= "" then
+                table.insert(selected_answers, saved_answer:lower():trim())
             end
         end
 
-        local correct = {}
-        for _, a in ipairs(data.answers or {}) do
-            table.insert(correct, a:lower():trim())
+        -- Normalize correct answers
+        local normalized_correct_answers = {}
+        for _, answer in ipairs(correct_answers) do
+            table.insert(normalized_correct_answers, answer:lower():trim())
         end
 
-        table.sort(selected)
-        table.sort(correct)
+        table.sort(selected_answers)
+        table.sort(normalized_correct_answers)
 
         local function arrays_equal(a, b)
             if #a ~= #b then return false end
@@ -130,7 +168,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             return true
         end
 
-        if arrays_equal(selected, correct) then
+        if arrays_equal(selected_answers, normalized_correct_answers) then
             minetest.chat_send_player(name, "Correct! You may collect your reward.")
             chest_open.show(pos, name, meta)
             local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
@@ -142,9 +180,10 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         end
 
         -- Clear metadata
-        for i = 1, #options do
-            pmeta:set_string("question_chest:opt_" .. i, "")
+        for field, _ in pairs(label_map) do
+            pmeta:set_string("question_chest:selected_" .. field, "")
         end
+        pmeta:set_string("question_chest:label_map", "")
 
         return true
     end
