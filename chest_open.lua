@@ -14,7 +14,8 @@ function M.show(pos, player_name, meta)
     meta:set_string("answered_players", minetest.serialize(answered))
 
     local detached = minetest.create_detached_inventory(detached_name, {
-        allow_take = function(_, _, _, stack) return stack:get_count() end
+        allow_take = function(_, _, _, stack) return stack:get_count() end,
+        allow_put = function() return 0 end, -- Prevent inserting items
     })
     detached:set_size("main", 8)
 

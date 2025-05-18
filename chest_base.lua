@@ -20,6 +20,14 @@ function M.register_chest(name, def)
         on_construct = def.on_construct,
         can_dig = def.can_dig,
         on_rightclick = def.on_rightclick,
+
+        -- Prevent inserting items into reward inventories
+        allow_metadata_inventory_put = function(pos, listname, index, stack, player)
+            if listname:sub(1, 7) == "reward_" then
+                return 0  -- Disallow insertion
+            end
+            return stack:get_count()
+        end,
     })
 end
 
