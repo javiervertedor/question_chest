@@ -105,13 +105,14 @@ Ensure students can only **collect** rewards — not insert or store their own i
 **Implementation:**
 Add this to your chest node registration (e.g., in chest_base.lua):
 
-lua
+```lua
 allow_metadata_inventory_put = function(pos, listname, index, stack, player)
     if listname:sub(1, 7) == "reward_" then
         return 0  -- Disallow insertion
     end
     return stack:get_count()
 end
+```
 
 **Benefit:**
 - ✅ Secures the chest content
