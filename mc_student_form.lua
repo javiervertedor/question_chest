@@ -24,10 +24,10 @@ function M.get(pos, data)
         meta:set_string("question_chest:label_map", minetest.write_json(label_map))
     end
 
-    local formspec = "formspec_version[4]size[10.5,12]"
-    formspec = formspec .. "label[0.3,0.3;" .. minetest.formspec_escape(question) .. "]"
+    local formspec = "formspec_version[4]size[10.5,6]"
+    formspec = formspec .. "textarea[0.3,0.3;10,2;;;" .. minetest.formspec_escape(question) .. "]"
 
-    local y = 0.8
+    local y = 1.5
     for i, opt in ipairs(options) do
         local opt_label = minetest.formspec_escape(opt)
         formspec = formspec .. "checkbox[0.5," .. y .. ";opt_" .. i .. ";" .. opt_label .. ";false]"
