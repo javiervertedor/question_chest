@@ -5,7 +5,7 @@ function M.get(pos, data)
     local options = data.options or {}
 
     local formspec = "formspec_version[4]size[10.5,12]"
-    formspec = formspec .. "label[0.3,0.2;" .. minetest.formspec_escape(question) .. "]"
+    formspec = formspec .. "label[0.3,0.3;" .. minetest.formspec_escape(question) .. "]"
 
     local y = 0.8
     for i, opt in ipairs(options) do
