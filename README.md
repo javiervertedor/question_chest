@@ -74,31 +74,6 @@ This Luanti mod adds **interactive question chests** for classroom use. Teachers
 
 ---
 
-
-# 🧩 Future Enhancements
-## 1. 🧱 Node Metadata Inventories (Per-Student Reward Persistence)
-
-**Goal:**  
-Replace `detached` inventories with `nodemeta`-based inventories for each student (`reward_<player_name>`), enabling reliable reward tracking and persistence.
-
-**Advantages:**
-- ✅ Rewards persist across sessions and server restarts
-- ✅ Each student's progress is stored independently
-- ✅ Students can collect rewards partially and return later
-
-**How it works:**
-- On correct answer:
-  ```lua
-  inv:set_size("reward_" .. player_name, 8)
-  inv:set_list("reward_" .. player_name, reward_items)
-  ```
-- Inventory displayed using:
-  ```lua
-  list[nodemeta:<pos>;reward_<player_name>;0.3,1;8,1;]
-  ```
-
----
-
 ## 📚 License
 
 This mod is licensed under the **GNU General Public License v3.0**
