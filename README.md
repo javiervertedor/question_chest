@@ -96,6 +96,26 @@ Replace `detached` inventories with `nodemeta`-based inventories for each studen
   ```lua
   list[nodemeta:<pos>;reward_<player_name>;0.3,1;8,1;]
   ```
+---
+## 2. 🚫 Prevent Students from Inserting Items into the Chest
+
+**Goal:**  
+Ensure students can only **collect** rewards — not insert or store their own items.
+
+**Implementation:**
+Add this to your chest node registration (e.g., in chest_base.lua):
+
+lua
+allow_metadata_inventory_put = function(pos, listname, index, stack, player)
+    if listname:sub(1, 7) == "reward_" then
+        return 0  -- Disallow insertion
+    end
+    return stack:get_count()
+end
+
+**Benefit:**
+- ✅ Secures the chest content
+- ✅ Prevents cheating or unintended item storage
 
 ---
 
