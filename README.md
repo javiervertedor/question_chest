@@ -96,6 +96,11 @@ Replace `detached` inventories with `nodemeta`-based inventories for each studen
   ```lua
   list[nodemeta:<pos>;reward_<player_name>;0.3,1;8,1;]
   ```
+## String parsing answers matching in MCQ
+1. Parse options in " " as a single option
+2. Ignore not matched "
+3. Check that all the correct answers correspond an existing choice
+
 ---
 
 ## 📚 License
