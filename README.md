@@ -93,6 +93,16 @@ Correct answers: ""A process of repeating steps""
 
 ## 📚 License
 
-This mod is licensed under the **GNU General Public License v3.0**
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/) license.
 
-See [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html)
+### You are free to:
+- Share — copy and redistribute the material in any medium or format
+- Adapt — remix, transform, and build upon the material
+
+### Under the following terms:
+- **Attribution** — You must give appropriate credit (to Francisco Javier Vertedor Postigo), provide a link to the license, and indicate if changes were made.
+- **NonCommercial** — You may not use the material for commercial purposes.
+
+---
+
+Developed by Francisco Javier Vertedor Postigo for Luanti educational environments.
