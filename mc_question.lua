@@ -2,6 +2,7 @@ local chest_base = dofile(minetest.get_modpath("question_chest") .. "/chest_base
 local student_form = dofile(minetest.get_modpath("question_chest") .. "/mc_student_form.lua")
 local teacher_form = dofile(minetest.get_modpath("question_chest") .. "/mc_teacher_form.lua")
 local chest_open = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
+local utils = dofile(minetest.get_modpath("question_chest") .. "/utils.lua")
 
 -- Helper to shuffle choices
 local function shuffle_options(options)
@@ -106,16 +107,41 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             return true
         end
 
-        local options = {}
-        for item in options_str:gmatch("[^,]+") do
-            table.insert(options, item:trim())
+        local options = utils.parse_quoted_string(options_str)
+        local answers = utils.parse_quoted_string(answers_str)
+        
+        -- Convert options and answers to lowercase for comparison
+        local options_lower = {}
+        for _, opt in ipairs(options) do
+            table.insert(options_lower, opt:lower())
+        end
+        
+        -- Validate that all answers exist in options
+        local invalid_answers = {}
+        for _, answer in ipairs(answers) do
+            local answer_lower = answer:lower()
+            local found = false
+            for _, opt in ipairs(options_lower) do
+                if opt == answer_lower then
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                table.insert(invalid_answers, answer)
+            end
         end
 
-        local answers = {}
-        for item in answers_str:gmatch("[^,]+") do
-            table.insert(answers, item:lower():trim())
+        -- If there are invalid answers, show error message and return
+        if #invalid_answers > 0 then
+            local error_msg = "Error: The following answers are not in the choices:\n"
+            error_msg = error_msg .. table.concat(invalid_answers, ", ")
+            error_msg = error_msg .. "\n\nPlease ensure all correct answers are among the choices."
+            minetest.chat_send_player(name, error_msg)
+            return true
         end
 
+        -- Save the question data
         local reward_serialized = {}
         for _, stack in ipairs(meta:get_inventory():get_list("main")) do
             table.insert(reward_serialized, stack:to_string())

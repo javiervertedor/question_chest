@@ -1,12 +1,19 @@
 local M = {}
+local utils = dofile(minetest.get_modpath("question_chest") .. "/utils.lua")
 
 function M.get(pos, data)
-    local question = data.question or "No question."
+    local question = (data.question or "No question."):gsub('"', "")
     local original_options = data.options or {}
 
     -- Create a shuffled copy
     local options = {}
-    for _, v in ipairs(original_options) do table.insert(options, v) end
+    for _, v in ipairs(original_options) do
+        if type(v) == "string" and v ~= "" then
+            -- Keep the option as is, without modifying quotes
+            table.insert(options, v)
+        end
+    end
+
     math.randomseed(os.time())
     for i = #options, 2, -1 do
         local j = math.random(i)
