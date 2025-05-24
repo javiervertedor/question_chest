@@ -17,7 +17,10 @@ This Luanti mod adds **interactive question chests** for classroom use. Teachers
 - GUI includes:
   - Question input
   - Answers (comma-separated)
-  - (For MCQ) Options (comma-separated)
+  - (For MCQ) Options with special formatting:
+    - Simple options: `Selection, Loop, Array`
+    - Single-quoted options: `"First Option", "Second Option"`
+    - Options with commas: `""Option 1, Option 2, Option 3""`
   - Reward item slots
   - Save/Close buttons
   - Auto-cleared answer tracking per new question
@@ -34,6 +37,7 @@ This Luanti mod adds **interactive question chests** for classroom use. Teachers
 - Students cannot destroy question chests
 - Rewards are stored in detached inventories (per-student)
 - Students cannot insert items into the chest
+- Multiple choice answers must exist in the options list
 
 ---
 
@@ -71,34 +75,19 @@ This Luanti mod adds **interactive question chests** for classroom use. Teachers
 | `mc_student_form.lua` | MCQ student form with checkboxes |
 | `mc_teacher_form.lua` | MCQ teacher form with option/answer input |
 | `reward_form.lua` | Reward collection inventory form |
+| `utils.lua` | Helper functions for string parsing and validation |
 
----
+### 📝 Multiple Choice Format Examples
 
-# 🧩 Future Enhancement
+```
+Question: What are the key components of a loop?
+Options: "Counter", "Condition", ""Body, Update, Expression"", Loop
+Correct answers: "Counter", "Condition"
 
-## 🧱 Node Metadata Inventories (Per-Student Reward Persistence)
-
-**Goal:**  
-Replace `detached` inventories with `nodemeta`-based inventories for each student (`reward_<player_name>`), enabling reliable reward tracking and persistence.
-
-**Advantages:**
-- ✅ Rewards persist across sessions and server restarts
-- ✅ Each student's progress is stored independently
-- ✅ Students can collect rewards partially and return later
-
-**How it works:**
-- On correct answer:
-  ```lua
-  inv:set_size("reward_" .. player_name, 8)
-  inv:set_list("reward_" .. player_name, reward_items)
-  ```
-- Inventory displayed using:
-  ```lua
-  list[nodemeta:<pos>;reward_<player_name>;0.3,1;8,1;]
-  ```
-## Separate values with semicolons and answers matching in MCQ
-1. Separate values with ;
-2. Check that all the correct answers correspond an existing choice
+Question: Which statement best describes iteration?
+Options: ""A process of repeating steps"", "A one-time operation", Selection
+Correct answers: ""A process of repeating steps""
+```
 
 ---
 
