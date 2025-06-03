@@ -5,8 +5,8 @@
 -- questions (open-ended or multiple choice) and associate rewards. Students must answer
 -- correctly to receive items, promoting learning through gameplay.
 --
--- This project is licensed under the CC BY-NC 4.0
--- License: https://creativecommons.org/licenses/by-nc/4.0/
+-- Licensed under the GNU General Public License v3.0
+-- See https://www.gnu.org/licenses/gpl-3.0.html
 
 
 -- Register admin privilege

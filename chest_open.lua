@@ -8,48 +8,31 @@ function M.show(pos, player_name, meta)
     local detached_name = "question_chest:" .. pos_key .. ":" .. player_name
 
     local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
-    local reward_collected = minetest.deserialize(meta:get_string("reward_collected") or "{}") or {}
+    local reward_collected = minetest.deserialize(meta:get_string("reward_collected") or "") or {}
 
     answered[player_name] = true
     meta:set_string("answered_players", minetest.serialize(answered))
 
-    -- Get or initialize reward collection tracking
-    reward_collected[player_name] = reward_collected[player_name] or {}
+    local detached = minetest.create_detached_inventory(detached_name, {
+        allow_take = function(_, _, _, stack) return stack:get_count() end,
+        allow_put = function() return 0 end, -- Prevent inserting items
+    })
+    detached:set_size("main", 8)
 
-    -- Get the original reward items
-    local reward_items = minetest.deserialize(meta:get_string("reward_items") or "{}") or {}
-    
-    -- Create player's detached inventory if it doesn't exist
-    local inv_name = "question_chest_reward_" .. player_name .. "_" .. minetest.pos_to_string(pos)
-    local inv = minetest.get_inventory({type="detached", name=inv_name})
-    
-    if not inv then
-        inv = minetest.create_detached_inventory(inv_name, {
-            allow_move = function() return 0 end,
-            allow_put = function() return 0 end,
-            allow_take = function(inv, listname, index, stack, player)
-                if player:get_player_name() ~= player_name then return 0 end
-                
-                -- Mark item as collected
-                reward_collected[player_name][index] = true
-                meta:set_string("reward_collected", minetest.serialize(reward_collected))
-                
-                return stack:get_count()
-            end,
-        })
-        inv:set_size("main", 8)
-        
-        -- Only populate with uncollected items
-        for i, item_str in ipairs(reward_items) do
-            if not reward_collected[player_name][i] then
-                inv:set_stack("main", i, ItemStack(item_str))
-            end
+    if not reward_collected[player_name] then
+        local reward_serialized = minetest.deserialize(meta:get_string("reward_items") or "")
+        local reward_items = {}
+        for i, str in ipairs(reward_serialized or {}) do
+            reward_items[i] = ItemStack(str)
         end
+        detached:set_list("main", reward_items)
+        reward_collected[player_name] = true
+        meta:set_string("reward_collected", minetest.serialize(reward_collected))
+    else
+        detached:set_list("main", {})
     end
 
-    -- Show formspec
-    local formspec = reward_form.get(pos, player_name)
-    minetest.show_formspec(player_name, "question_chest:reward_" .. minetest.pos_to_string(pos), formspec)
+    minetest.show_formspec(player_name, "question_chest:chest_open", reward_form.get(player_name, detached_name))
 end
 
 return M

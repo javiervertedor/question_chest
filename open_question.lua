@@ -8,7 +8,7 @@ local function get_chest_key(pos)
 end
 
 chest_base.register_chest("question_chest:chest", {
-    description = "Question Chest",
+    description = "Open Question Chest",
     tiles = {
         "question_chest_top.png",
         "default_chest_bottom.png",
@@ -25,27 +25,27 @@ chest_base.register_chest("question_chest:chest", {
         meta:set_string("data", "{}")
     end,
 
-    on_rightclick = function(pos, node, player)
-        if minetest.check_player_privs(player, {question_chest_admin = true}) then
-            -- Teacher mode
-            local meta = minetest.get_meta(pos)
-            local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-            local formspec = teacher_form.get(pos, data)
-            player:get_meta():set_string("question_chest:pos", minetest.pos_to_string(pos))
-            minetest.show_formspec(player:get_player_name(), "question_chest:teacher", formspec)
-        else
-            -- Student mode
-            local meta = minetest.get_meta(pos)
-            local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-            local formspec = student_form.get(pos, data)
-            player:get_meta():set_string("question_chest:pos", minetest.pos_to_string(pos))
-            minetest.show_formspec(player:get_player_name(), "question_chest:student", formspec)
-        end
-    end,
-
     can_dig = function(pos, player)
         return minetest.check_player_privs(player, {question_chest_admin = true}) and
             minetest.get_meta(pos):get_inventory():is_empty("main")
+    end,
+
+    on_rightclick = function(pos, node, clicker)
+        local name = clicker:get_player_name()
+        local meta = minetest.get_meta(pos)
+        clicker:get_meta():set_string("question_chest:pos", minetest.pos_to_string(pos))
+
+        local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
+        local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
+
+        if minetest.check_player_privs(name, {question_chest_admin = true}) then
+            minetest.show_formspec(name, "question_chest:open_teacher", teacher_form.get(pos, data))
+        elseif answered[name] then
+            minetest.chat_send_player(name, "You already answered this question correctly.")
+            chest_open.show(pos, name, meta)
+        else
+            minetest.show_formspec(name, "question_chest:open_student", student_form.get(pos, data))
+        end
     end,
 })
 
@@ -56,66 +56,52 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     if not pos then return false end
     local meta = minetest.get_meta(pos)
 
-    -- === TEACHER MODE ===
-    if formname == "question_chest:teacher" and fields.submit then
+    -- Open-ended TEACHER FORM
+    if formname == "question_chest:open_teacher" and fields.submit then
         local question = (fields.question_input or ""):trim()
-        local answers = {}
-        for answer in (fields.answers_input or ""):gmatch("[^,]+") do
-            answer = answer:match("^%s*(.-)%s*$"):lower()
-            if answer ~= "" then
-                table.insert(answers, answer)
-            end
-        end
+        local answers_str = (fields.correct_answers or ""):trim()
 
-        if question == "" or #answers == 0 then
-            minetest.chat_send_player(name, "Please fill in both question and answers.")
+        if question == "" or answers_str == "" then
+            minetest.chat_send_player(name, "Please enter a question and at least one correct answer.")
             return true
         end
 
-        -- Serialize reward items
+        local answers = {}
+        for answer in answers_str:gmatch("[^,]+") do
+            table.insert(answers, answer:lower():trim())
+        end
+
         local reward_serialized = {}
         for _, stack in ipairs(meta:get_inventory():get_list("main")) do
             table.insert(reward_serialized, stack:to_string())
         end
 
-        meta:set_string("data", minetest.write_json({
-            question = question,
-            answers = answers
-        }))
+        meta:set_string("data", minetest.write_json({question = question, answers = answers}))
         meta:set_string("reward_items", minetest.serialize(reward_serialized))
         meta:set_string("answered_players", minetest.serialize({}))
-        meta:set_string("reward_collected", minetest.serialize({}))  -- Initialize empty collection tracking
+        meta:set_string("reward_collected", minetest.serialize({}))
 
-        minetest.chat_send_player(name, "Question saved successfully.")
+        minetest.chat_send_player(name, "Question and rewards saved.")
         return true
     end
 
-    -- === STUDENT MODE ===
-    if formname == "question_chest:student" and fields.submit then
+    -- Open-ended STUDENT FORM
+    if formname == "question_chest:open_student" and fields.submit_answer then
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-        local correct_answers = data.answers or {}
-        local answer = (fields.answer_input or ""):lower():trim()
+        local submitted = (fields.student_answer or ""):lower():trim()
 
-        -- Check if answer matches any of the correct answers
-        local is_correct = false
-        for _, correct in ipairs(correct_answers) do
-            if answer == correct then
-                is_correct = true
-                break
+        for _, answer in ipairs(data.answers or {}) do
+            if submitted == answer then
+                minetest.chat_send_player(name, "Correct! You may collect your reward.")
+                chest_open.show(pos, name, meta)
+                return true
             end
         end
 
-        if is_correct then
-            minetest.chat_send_player(name, "Correct! You may collect your reward.")
-            chest_open.show(pos, name, meta)
-            local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
-            answered[name] = true
-            meta:set_string("answered_players", minetest.serialize(answered))
-        else
-            minetest.chat_send_player(name, "Incorrect. Try again.")
-            minetest.close_formspec(name, formname)
-        end
+        minetest.chat_send_player(name, "Incorrect. Try again.")
+        minetest.close_formspec(name, formname)
         return true
     end
+
     return false
 end)
