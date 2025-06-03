@@ -2,7 +2,18 @@ local M = {}
 
 function M.get(pos, data)
     local question = minetest.formspec_escape(data.question or "")
-    local answers = minetest.formspec_escape(table.concat(data.answers or {}, ", "))
+    
+    -- Convert answers back to string format, using original format
+    local answers_str = ""
+    if data.answers then
+        local answer_strings = {}
+        for _, answer in ipairs(data.answers) do
+            table.insert(answer_strings, answer.original or "")
+        end
+        answers_str = table.concat(answer_strings, ", ")
+    end
+    answers_str = minetest.formspec_escape(answers_str)
+    
     local meta = minetest.get_meta(pos)
 
     -- Fetch answered player list (serialized table)
@@ -24,9 +35,9 @@ function M.get(pos, data)
         "key_escape[close]" ..
         "label[0.3,0.3;TEACHER MODE]" ..
         "label[0.3,0.8;Enter a question:]" ..
-        "textarea[0.3,1.1;9.5,1.5;question_input;;" .. question .. "]" .. -- Reduced height of textarea
+        "textarea[0.3,1.1;9.5,1.5;question_input;;" .. question .. "]" ..
         "label[0.3,2.8;Correct Answers (comma-separated):]" ..
-        "field[0.3,3.1;9.5,0.8;correct_answers;;" .. answers .. "]" ..
+        "field[0.3,3.1;9.5,0.8;correct_answers;;" .. answers_str .. "]" ..
         "button_exit[2.5,4.1;2.5,1;close;Close]" ..
         "button[5.0,4.1;2.5,1;submit;Save]" ..
         "label[0.3,5.4;Place reward items below:]" ..

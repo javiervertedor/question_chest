@@ -2,9 +2,69 @@ local chest_base    = dofile(minetest.get_modpath("question_chest") .. "/chest_b
 local student_form  = dofile(minetest.get_modpath("question_chest") .. "/student_form.lua")
 local teacher_form  = dofile(minetest.get_modpath("question_chest") .. "/teacher_form.lua")
 local chest_open    = dofile(minetest.get_modpath("question_chest") .. "/chest_open.lua")
+local utils        = dofile(minetest.get_modpath("question_chest") .. "/utils.lua")
 
-local function get_chest_key(pos)
-    return minetest.pos_to_string(pos):gsub("[%s%,%(%)]", "_")
+local function normalize_answer(answer)
+    -- Removes leading/trailing whitespace and converts to lowercase
+    -- Preserve internal spaces and commas
+    return answer:lower():match("^%s*(.-)%s*$")
+end
+
+local function parse_answer(str)
+    if str:match('^"".*""$') then
+        -- Double-quoted answer with potential commas - preserve as a single answer
+        return str:sub(3, -3) -- Remove outer quotes
+    elseif str:match('^".*"$') then
+        -- Single-quoted answer - preserve as is
+        return str:sub(2, -2) -- Remove outer quotes
+    else
+        -- Unquoted answer - preserve as is
+        return str
+    end
+end
+
+local function split_answers(answers_str)
+    local answers = {}
+    local current_pos = 1
+    local len = string.len(answers_str)
+    
+    while current_pos <= len do
+        -- Skip whitespace
+        current_pos = string.find(answers_str, "[^%s]", current_pos) or (len + 1)
+        if current_pos > len then break end
+
+        if string.sub(answers_str, current_pos, current_pos + 1) == '""' then
+            -- Find the end of the double-quoted block
+            local _, end_pos = string.find(answers_str, '""[^"]*""', current_pos)
+            if end_pos then
+                local item = string.sub(answers_str, current_pos, end_pos)
+                table.insert(answers, item)
+                current_pos = end_pos + 1
+            else
+                break
+            end
+        elseif string.sub(answers_str, current_pos, current_pos) == '"' then
+            -- Find the end of the single-quoted token
+            local _, end_pos = string.find(answers_str, '"[^"]*"', current_pos)
+            if end_pos then
+                local item = string.sub(answers_str, current_pos, end_pos)
+                table.insert(answers, item)
+                current_pos = end_pos + 1
+            else
+                break
+            end
+        else
+            -- Unquoted item until next comma
+            local end_pos = string.find(answers_str, ",", current_pos) or (len + 1)
+            local item = string.sub(answers_str, current_pos, end_pos - 1)
+            if item and item:match("%S") then
+                table.insert(answers, item)
+            end
+            current_pos = end_pos + 1
+        end
+    end
+    
+    return answers
 end
 
 chest_base.register_chest("question_chest:chest", {
@@ -66,9 +126,22 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             return true
         end
 
-        local answers = {}
-        for answer in answers_str:gmatch("[^,]+") do
-            table.insert(answers, answer:lower():trim())
+        -- Split answers preserving quoted phrases
+        local answers = split_answers(answers_str)
+        
+        if #answers == 0 then 
+            minetest.chat_send_player(name, "Please provide at least one valid answer.")
+            return true
+        end
+
+        -- Store both the original format and normalized version for each answer
+        local answer_data = {}
+        for _, answer in ipairs(answers) do
+            local parsed = parse_answer(answer)
+            table.insert(answer_data, {
+                original = answer,
+                normalized = normalize_answer(parsed)
+            })
         end
 
         local reward_serialized = {}
@@ -76,7 +149,10 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
             table.insert(reward_serialized, stack:to_string())
         end
 
-        meta:set_string("data", minetest.write_json({question = question, answers = answers}))
+        meta:set_string("data", minetest.write_json({
+            question = question, 
+            answers = answer_data
+        }))
         meta:set_string("reward_items", minetest.serialize(reward_serialized))
         meta:set_string("answered_players", minetest.serialize({}))
         meta:set_string("reward_collected", minetest.serialize({}))
@@ -88,14 +164,38 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
     -- Open-ended STUDENT FORM
     if formname == "question_chest:open_student" and fields.submit_answer then
         local data = minetest.parse_json(meta:get_string("data") or "{}") or {}
-        local submitted = (fields.student_answer or ""):lower():trim()
+        local submitted = fields.student_answer or ""
 
-        for _, answer in ipairs(data.answers or {}) do
-            if submitted == answer then
-                minetest.chat_send_player(name, "Correct! You may collect your reward.")
-                chest_open.show(pos, name, meta)
-                return true
+        -- Try different formats of the student's answer
+        local submitted_formats = {
+            submitted,                              -- As typed
+            '"' .. submitted .. '"',               -- Single quoted
+            '""' .. submitted .. '""',             -- Double quoted
+            normalize_answer(submitted)             -- Normalized
+        }
+
+        -- Check if any format of the submission matches any normalized answer
+        local is_correct = false
+        for _, format in ipairs(submitted_formats) do
+            local norm_format = normalize_answer(parse_answer(format))
+            for _, answer in ipairs(data.answers or {}) do
+                if norm_format == answer.normalized then
+                    is_correct = true
+                    break
+                end
             end
+            if is_correct then break end
+        end
+
+        if is_correct then
+            minetest.chat_send_player(name, "Correct! You may collect your reward.")
+            -- Update answered players list
+            local answered = minetest.deserialize(meta:get_string("answered_players") or "") or {}
+            answered[name] = true
+            meta:set_string("answered_players", minetest.serialize(answered))
+            
+            chest_open.show(pos, name, meta)
+            return true
         end
 
         minetest.chat_send_player(name, "Incorrect. Try again.")
