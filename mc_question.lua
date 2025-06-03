@@ -154,7 +154,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         }))
         meta:set_string("reward_items", minetest.serialize(reward_serialized))
         meta:set_string("answered_players", minetest.serialize({}))
-        meta:set_string("reward_collected", minetest.serialize({}))
+        meta:set_string("reward_collected", minetest.serialize({}))  -- Initialize empty collection tracking
 
         minetest.chat_send_player(name, "MCQ saved successfully.")
         return true
